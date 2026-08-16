@@ -30,11 +30,13 @@ export default function AdopterSignup({
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const API = import.meta.env.VITE_API_URL;
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // নামের ফিল্ডে কোনো সংখ্যা বা ডিজিট টাইপ করতে না দেওয়ার লাইভ রেস্ট্রিকশন
     if (name === 'fullName') {
       const filteredValue = value.replace(/[0-9]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
@@ -44,34 +46,66 @@ export default function AdopterSignup({
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // নামের মধ্যে কোনো ডিজিট বা ইনভ্যালিড ক্যারেক্টার আছে কিনা ফাইনাল চেক
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(formData.fullName)) {
-      alert("Name cannot contain numbers or special characters. Please use letters only (e.g., Ishrat Jahan Ifa).");
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const nameRegex = /^[A-Za-z\s]+$/;
+  if (!nameRegex.test(formData.fullName)) {
+    alert("Name cannot contain numbers or special characters.");
+    return;
+  }
+
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+  if (!passwordRegex.test(formData.password)) {
+    alert("Password is too weak.");
+    return;
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  setLoading(true); // Start loading
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/api/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || "Registration failed.");
       return;
     }
 
-    // পাসওয়ার্ড স্ট্রেন্থ ভ্যালিডেশন চেক (মিনিমাম ৮, আপারকেস, লোওয়ারকেস, ডিজিট এবং স্পেশাল ক্যারেক্টার বাধ্যবাধকতা)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character (e.g., @$!%*?&).");
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
-      return;
-    }
-
-    // সফল সাইন-আপ লজিক
     alert("Adopter Account Created Successfully!");
+
     if (setCurrentPage) {
-      setCurrentPage('login');
+      setCurrentPage("login");
     }
-  };
+  } catch (error) {
+    console.error(error);
+    alert("Cannot connect to the server.");
+  } finally {
+    setLoading(false); // Stop loading
+  }
+};
 
   return (
     <>
@@ -345,16 +379,22 @@ export default function AdopterSignup({
           cursor: pointer;
         }
 
-        .input-with-icon input {
-          width: 100%;
-          padding: 10px 40px 10px 40px;
-          border: 1px solid #cbd5e1;
-          border-radius: 9px;
-          font-size: 13px;
-          outline: none;
-          background: #fff;
-          transition: all 0.2s;
-        }
+       .input-with-icon input {
+  width: 100%;
+  padding: 10px 40px 10px 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+  color: #102c45;
+  caret-color: #102c45;
+  transition: all 0.2s;
+}
+
+.input-with-icon input::placeholder {
+  color: #64748b;
+}
 
         .input-with-icon input:focus {
           border-color: #dd6b20;
@@ -618,9 +658,9 @@ export default function AdopterSignup({
                 </div>
               </div>
 
-              <button type="submit" className="submit-btn">
-                REGISTER AS ADOPTER
-              </button>
+            <button type="submit" className="submit-btn" disabled={loading}>
+  {loading ? "Creating Account..." : "REGISTER AS ADOPTER"}
+</button>
             </form>
 
             <div className="auth-footer-text">
