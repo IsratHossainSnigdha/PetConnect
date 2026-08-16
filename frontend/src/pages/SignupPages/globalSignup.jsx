@@ -9,6 +9,8 @@ import {
   ArrowLeft
 } from 'lucide-react';
 
+import { useNavigate } from "react-router-dom";
+
 export default function GlobalSignup({
   darkMode,
   toggleDarkMode,
@@ -16,21 +18,20 @@ export default function GlobalSignup({
 }) {
   const [selectedRole, setSelectedRole] = useState(null);
 
+  const navigate = useNavigate();
+
   // Handle Card / Sign Up Click
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-    if (setCurrentPage) {
-      if (role === 'adopter') {
-        setCurrentPage('adopter-form'); // potential adopter-এর ফর্ম পেজ
-      } else if (role === 'admin') {
-        setCurrentPage('admin-signup'); // নতুন অ্যাডমিন সাইন-আপ পেজ
-      } else if (role === 'staff') {
-        setCurrentPage('staff-form'); // shelter staff-এর জন্য নির্দিষ্ট সাইন-আপ ফর্ম পেজ
-      }
-    } else {
-      alert(`Selected Role: ${role}`);
-    }
-  };
+const handleRoleSelect = (role) => {
+  setSelectedRole(role);
+
+  if (role === "adopter") {
+    navigate("/signup/adopter");
+  } else if (role === "admin") {
+    navigate("/signup/admin");
+  } else if (role === "staff") {
+    navigate("/signup/staff");
+  }
+};
 
   return (
     <>
@@ -481,7 +482,7 @@ export default function GlobalSignup({
         <div className="paw-pattern-bg"></div>
 
         <nav className="navbar">
-          <div className="logo" onClick={() => setCurrentPage && setCurrentPage('landing')}>
+          <div className="logo" onClick={() => navigate("/")}>
             <div className="logo-icon">
               <Dog size={24} />
             </div>
@@ -507,7 +508,7 @@ export default function GlobalSignup({
 
             <button
               className="back-btn"
-              onClick={() => setCurrentPage && setCurrentPage('landing')}
+              onClick={() => navigate("/")}
             >
               <ArrowLeft size={16} /> Back
             </button>
@@ -592,9 +593,9 @@ export default function GlobalSignup({
 
           <div className="auth-footer-text">
             Already have an account?{' '}
-            <span onClick={() => setCurrentPage && setCurrentPage('login')}>
-              Log In
-            </span>
+            <span onClick={() => navigate("/login")}>
+  Log In
+</span>
           </div>
 
         </div>

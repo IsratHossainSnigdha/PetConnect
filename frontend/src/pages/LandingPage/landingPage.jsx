@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   Sun,
@@ -15,6 +16,7 @@ export default function LandingPage({
   setCurrentPage
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
   
   // Dynamic state for rotating pet emojis in "Meet Our Pets"
   const petEmojiList = [
@@ -67,21 +69,13 @@ export default function LandingPage({
 
   // Get Started Handler (Fixed to 'global-signup')
   const handleGetStarted = () => {
-    if (setCurrentPage) {
-      setCurrentPage('global-signup');
-    } else {
-      alert("Welcome to Pet Connect! Let's find your perfect pet.");
-    }
-  };
+  navigate("/signup");
+};
 
   // Login Handler (Fixed to 'global-signup')
   const handleLogin = () => {
-    if (setCurrentPage) {
-      setCurrentPage('global-signup');
-    } else {
-      alert('Sign Up / Login page will open here.');
-    }
-  };
+  navigate("/signup");
+};
 
   return (
     <>

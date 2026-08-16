@@ -7,6 +7,10 @@ use App\Http\Controllers\Auth\RegisterController;
 
 use App\Http\Controllers\Auth\AdminRegisterController;
 
+use App\Http\Controllers\Auth\ShelterRegisterController;
+
+Route::post('/auth/shelter/register', [ShelterRegisterController::class, 'register']);
+
 
 Route::post('/auth/admin/register', [AdminRegisterController::class, 'register']);
 

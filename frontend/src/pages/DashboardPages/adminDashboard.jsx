@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
 import { 
   Dog, 
   Sun, 
@@ -23,6 +24,7 @@ import {
 
 export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPage }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
 
   return (
     <>
@@ -713,7 +715,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
         {/* Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-top">
-            <div className="sidebar-brand" onClick={() => setCurrentPage && setCurrentPage('landing')}>
+            <div className="sidebar-brand" onClick={() => navigate("/")}>
               <div className="brand-icon">
                 <Dog size={22} />
               </div>
@@ -760,7 +762,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
           <div className="sidebar-bottom">
             <button 
               className="logout-btn"
-              onClick={() => setCurrentPage && setCurrentPage('landing')}
+             onClick={() => navigate("/")}
             >
               <LogOut size={18} /> Logout
             </button>
@@ -790,7 +792,10 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                 <span className="badge-dot"></span>
               </button>
 
-              <div className="admin-profile-pill">
+            <div
+  className="admin-profile-pill"
+  onClick={() => navigate("/profile/admin")}
+>
                 <img 
                   src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" 
                   alt="Admin" 

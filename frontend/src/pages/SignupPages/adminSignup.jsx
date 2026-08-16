@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
+
+
 import { 
   Dog, 
   Sun, 
@@ -14,7 +17,10 @@ import {
   Key 
 } from 'lucide-react';
 
-export default function AdminSignup({ darkMode, toggleDarkMode, setCurrentPage }) {
+
+
+export default function AdminSignup({ darkMode, toggleDarkMode }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     number: '',
@@ -121,7 +127,7 @@ setFormData({
 });
 
 // Go to the admin portal
-setCurrentPage("admin-portal");
+navigate("/dashboard/admin");
   } catch (error) {
     alert("Cannot connect to the server.");
   } finally {
@@ -511,7 +517,7 @@ setCurrentPage("admin-portal");
         <div className="paw-pattern-bg"></div>
 
         <nav className="navbar">
-          <div className="logo" onClick={() => setCurrentPage && setCurrentPage('landing')}>
+         <div className="logo" onClick={() => navigate("/")}>
             <div className="logo-icon">
               <Dog size={24} />
             </div>
@@ -536,9 +542,9 @@ setCurrentPage("admin-portal");
             </button>
 
             <button
-              className="back-btn"
-              onClick={() => setCurrentPage && setCurrentPage('global-signup')}
-            >
+  className="back-btn"
+  onClick={() => navigate("/signup")}
+>
               <ArrowLeft size={16} /> Back
             </button>
           </div>
