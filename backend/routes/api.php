@@ -5,6 +5,11 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Auth\RegisterController;
 
+use App\Http\Controllers\Auth\AdminRegisterController;
+
+
+Route::post('/auth/admin/register', [AdminRegisterController::class, 'register']);
+
 Route::post('/auth/register', [RegisterController::class, 'register']);
 
 Route::get('/user', function (Request $request) {

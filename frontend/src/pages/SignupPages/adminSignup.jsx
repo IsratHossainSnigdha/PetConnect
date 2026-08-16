@@ -27,18 +27,20 @@ export default function AdminSignup({ darkMode, toggleDarkMode, setCurrentPage }
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showAdminKey, setShowAdminKey] = useState(false);
+  const [loading, setLoading] = useState(false);
+const API = import.meta.env.VITE_API_URL;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // নামের ফিল্ডে ডিজিট রেস্ট্রিক্ট করা
+   
     if (name === 'name') {
       const filteredValue = value.replace(/[0-9]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
       return;
     }
 
-    // ফোন নম্বরের ফিল্ডে লেটার রেস্ট্রিক্ট করা
+    
     if (name === 'number') {
       const filteredValue = value.replace(/[^0-9+]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
@@ -48,34 +50,84 @@ export default function AdminSignup({ darkMode, toggleDarkMode, setCurrentPage }
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    // নামের ভ্যালিডেশন
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(formData.name)) {
-      alert("Name cannot contain numbers or special characters. Please use letters only.");
-      return;
-    }
+  const nameRegex = /^[A-Za-z\s.'-]+$/;
+  if (!nameRegex.test(formData.name)) {
+    alert("Name cannot contain numbers.");
+    return;
+  }
 
-    // পাসওয়ার্ড স্ট্রেন্থ ভ্যালিডেশন
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character (e.g., @$!%*?&).");
-      return;
-    }
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
-      return;
-    }
+  if (!passwordRegex.test(formData.password)) {
+    alert("Password is too weak.");
+    return;
+  }
 
-    alert('Admin Registration Submitted Successfully!');
-    if (setCurrentPage) {
-      // Signup successful hole Admin Dashboard-e niye jabe
-      setCurrentPage('admin-dashboard');
-    }
-  };
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${API}/auth/admin/register`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  body: JSON.stringify({
+    name: formData.name.trim(),
+    number: formData.number.trim(),
+    email: formData.email.trim().toLowerCase(),
+    password: formData.password,
+    password_confirmation: formData.confirmPassword,
+    adminKey: formData.adminKey,
+  }),
+});
+
+let data;
+
+try {
+  data = await response.json();
+} catch {
+  data = { message: "Unexpected server response." };
+}
+
+if (!response.ok) {
+  if (data.errors) {
+    alert(Object.values(data.errors).flat().join("\n"));
+  } else {
+    alert(data.message);
+  }
+  return;
+}
+
+    alert("Platform Admin Registered Successfully!");
+
+// Clear the form
+setFormData({
+  name: '',
+  number: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  adminKey: ''
+});
+
+// Go to the admin portal
+setCurrentPage("admin-portal");
+  } catch (error) {
+    alert("Cannot connect to the server.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <>
@@ -448,6 +500,11 @@ export default function AdminSignup({ darkMode, toggleDarkMode, setCurrentPage }
           border-color: #55a9d7;
           box-shadow: 0 0 0 3px rgba(85, 169, 215, 0.2);
         }
+
+        .submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
       `}</style>
 
       <div className={`container ${darkMode ? 'dark' : ''}`}>
@@ -602,9 +659,9 @@ export default function AdminSignup({ darkMode, toggleDarkMode, setCurrentPage }
                 </div>
               </div>
 
-              <button type="submit" className="submit-btn">
-                Register as Admin
-              </button>
+              <button type="submit" className="submit-btn" disabled={loading}>
+  {loading ? "Creating Admin..." : "Register as Admin"}
+</button>
             </form>
           </div>
         </div>

@@ -105,6 +105,10 @@ return [
         ),
     ],
 
+
+
+    
+
     /*
     |--------------------------------------------------------------------------
     | Maintenance Mode Driver
@@ -122,5 +126,9 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+
+    //admin key to sign up as platform admin
+    'admin_secret_key' => env('ADMIN_SECRET_KEY'),
 
 ];
