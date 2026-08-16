@@ -4,6 +4,12 @@ import { Routes, Route } from "react-router-dom";
 // Landing
 import LandingPage from "./pages/LandingPage/landingPage";
 
+// Login
+import LoginPage from "./pages/LoginPage/loginPage";
+
+// Route guard - keeps signed-out visitors off the dashboards
+import RequireAuth from "./components/RequireAuth";
+
 // Signup Pages
 import GlobalSignup from "./pages/SignupPages/globalSignup";
 import AdopterSignup from "./pages/SignupPages/adopterSignup";
@@ -60,20 +66,45 @@ export default function App() {
         element={<AdminSignup darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
       />
 
-      {/* Dashboards */}
+      {/* Login - the signup pages already linked here */}
+      <Route
+        path="/login"
+        element={<LoginPage darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
+      />
+
+      {/*
+        Dashboards - wrapped in RequireAuth so a signed-out visitor is bounced
+        to /login instead of seeing the page. The `role` prop additionally keeps
+        an adopter out of the admin dashboard.
+
+        Remember this is only the UI layer; the server enforces the same rules
+        independently on every API call.
+      */}
       <Route
         path="/dashboard/admin"
-        element={<AdminDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/dashboard/adopter"
-        element={<AdopterDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
+        element={
+          <RequireAuth role="adopter">
+            <AdopterDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/dashboard/shelter"
-        element={<ShelterDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
+        element={
+          <RequireAuth role="shelter_staff">
+            <ShelterDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          </RequireAuth>
+        }
       />
 
       <Route
@@ -89,7 +120,11 @@ export default function App() {
       {/* Profile Pages */}
       <Route
         path="/profile/admin"
-        element={<AdminProfile darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminProfile darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          </RequireAuth>
+        }
       />
 
       <Route

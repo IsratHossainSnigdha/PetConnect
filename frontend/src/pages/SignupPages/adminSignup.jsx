@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 
+// Saves the API token + user into localStorage, so the app is logged in.
+import { setSession } from "../../api/client";
+
 
 import { 
   Dog, 
@@ -126,7 +129,21 @@ setFormData({
   adminKey: ''
 });
 
-// Go to the admin portal
+/*
+  AUTO-LOGIN.
+
+  The register endpoint now returns a token alongside the new user, exactly
+  like /auth/login does. Saving it here means the browser is already
+  authenticated, so RequireAuth lets the dashboard through and every API call
+  it makes carries the Authorization header.
+
+  Without this line the dashboard would immediately bounce back to /login,
+  because a users row on its own does not make you logged in - a valid token
+  in personal_access_tokens does.
+*/
+setSession(data.token, data.user);
+
+// Go straight to the admin portal - no second password prompt.
 navigate("/dashboard/admin");
   } catch (error) {
     alert("Cannot connect to the server.");
