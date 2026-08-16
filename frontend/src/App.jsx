@@ -3,7 +3,9 @@ import LandingPage from './pages/LandingPage/landingPage';
 import GlobalSignup from './pages/SignupPages/globalSignup';
 import AdopterSignup from './pages/SignupPages/adopterSignup';
 import ShelterSignup from './pages/SignupPages/shelterSignup';
-import AdminSignup from './pages/SignupPages/adminSignup'; // ১. অ্যাডমিন সাইনআপ ইম্পোর্ট করুন
+import AdminSignup from './pages/SignupPages/adminSignup';
+import AdminDashboard from './pages/DashboardPages/adminDashboard';
+import AdminProfile from './pages/DashboardPages/AdminProfile'; // AdminProfile ইম্পোর্ট করা হলো
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -26,11 +28,12 @@ export default function App() {
     setDarkMode(!darkMode);
   };
 
-  // Valid routes list to check against
+  // Valid routes list ('admin-profile' যুক্ত করা হয়েছে)
   const validPages = [
     'home', 'landing', 'signup', 'admin-signup-select', 
     'global-signup', 'admin-signup', 'adopter-form', 
-    'staff-form', 'admin-portal', 'staff-portal', 'login'
+    'staff-form', 'admin-portal', 'staff-portal', 'login',
+    'admin-dashboard', 'admin-profile' 
   ];
 
   return (
@@ -53,7 +56,7 @@ export default function App() {
         />
       )}
 
-      {/* ২. Platform Admin Signup Page */}
+      {/* Platform Admin Signup Page */}
       {currentPage === 'admin-signup' && (
         <AdminSignup
           darkMode={darkMode}
@@ -80,15 +83,33 @@ export default function App() {
         />
       )}
 
+      {/* Admin Dashboard Page */}
+      {currentPage === 'admin-dashboard' && (
+        <AdminDashboard
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
+
+      {/* Admin Profile Page রেন্ডার করার জন্য */}
+      {currentPage === 'admin-profile' && (
+        <AdminProfile
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
+
       {/* Platform Admin Portal */}
       {currentPage === 'admin-portal' && (
         <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'Arial', background: darkMode ? '#050d14' : '#f0f4f9', color: darkMode ? '#fff' : '#102c45', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <h2>Platform Admin Portal</h2>
           <button 
-            onClick={() => setCurrentPage('global-signup')}
+            onClick={() => setCurrentPage('admin-dashboard')}
             style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer', background: '#286993', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
           >
-            Back to Selection
+            Go to Admin Dashboard
           </button>
         </div>
       )}
@@ -120,7 +141,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Fallback Safety Net: Prevents White Screen if currentPage is invalid */}
+      {/* Fallback Safety Net */}
       {!validPages.includes(currentPage) && (
         <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'Arial', background: darkMode ? '#050d14' : '#f0f4f9', color: darkMode ? '#fff' : '#102c45', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <h2>Oops! Page Not Found</h2>
