@@ -1,122 +1,138 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import LandingPage from './pages/LandingPage/landingPage';
+import GlobalSignup from './pages/SignupPages/globalSignup';
+import AdopterSignup from './pages/SignupPages/adopterSignup';
+import ShelterSignup from './pages/SignupPages/shelterSignup';
+import AdminSignup from './pages/SignupPages/adminSignup'; // ১. অ্যাডমিন সাইনআপ ইম্পোর্ট করুন
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('petConnectTheme') === 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('petConnectTheme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+  
+  const [currentPage, setCurrentPage] = useState(() => {
+    return localStorage.getItem('currentPage') || 'home';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('currentPage', currentPage);
+  }, [currentPage]);
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
+  // Valid routes list to check against
+  const validPages = [
+    'home', 'landing', 'signup', 'admin-signup-select', 
+    'global-signup', 'admin-signup', 'adopter-form', 
+    'staff-form', 'admin-portal', 'staff-portal', 'login'
+  ];
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div style={{ width: '100vw', minHeight: '100vh', overflowX: 'hidden' }}>
+      {/* Home / Landing Page */}
+      {(currentPage === 'home' || currentPage === 'landing') && (
+        <LandingPage
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
+      
+      {/* Global Signup / Role Selection Page */}
+      {(currentPage === 'signup' || currentPage === 'admin-signup-select' || currentPage === 'global-signup') && (
+        <GlobalSignup
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
 
-      <div className="ticks"></div>
+      {/* ২. Platform Admin Signup Page */}
+      {currentPage === 'admin-signup' && (
+        <AdminSignup
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {/* Potential Adopter Form Page */}
+      {currentPage === 'adopter-form' && (
+        <AdopterSignup
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {/* Shelter Staff Form Page */}
+      {currentPage === 'staff-form' && (
+        <ShelterSignup
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
+
+      {/* Platform Admin Portal */}
+      {currentPage === 'admin-portal' && (
+        <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'Arial', background: darkMode ? '#050d14' : '#f0f4f9', color: darkMode ? '#fff' : '#102c45', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <h2>Platform Admin Portal</h2>
+          <button 
+            onClick={() => setCurrentPage('global-signup')}
+            style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer', background: '#286993', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
+          >
+            Back to Selection
+          </button>
+        </div>
+      )}
+
+      {/* Shelter Staff Portal */}
+      {currentPage === 'staff-portal' && (
+        <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'Arial', background: darkMode ? '#050d14' : '#f0f4f9', color: darkMode ? '#fff' : '#102c45', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <h2>Shelter Staff Portal</h2>
+          <button 
+            onClick={() => setCurrentPage('global-signup')}
+            style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer', background: '#38a169', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
+          >
+            Back to Selection
+          </button>
+        </div>
+      )}
+
+      {/* Login Page */}
+      {currentPage === 'login' && (
+        <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'Arial', background: darkMode ? '#050d14' : '#f0f4f9', color: darkMode ? '#fff' : '#102c45', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <h2>Login Page</h2>
+          <p style={{ marginTop: '10px' }}>Login functionality will be available here soon.</p>
+          <button 
+            onClick={() => setCurrentPage('landing')}
+            style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer', background: '#dd6b20', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
+          >
+            Back to Home
+          </button>
+        </div>
+      )}
+
+      {/* Fallback Safety Net: Prevents White Screen if currentPage is invalid */}
+      {!validPages.includes(currentPage) && (
+        <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'Arial', background: darkMode ? '#050d14' : '#f0f4f9', color: darkMode ? '#fff' : '#102c45', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <h2>Oops! Page Not Found</h2>
+          <p style={{ marginTop: '10px' }}>The page you are looking for does not exist or was renamed.</p>
+          <button 
+            onClick={() => setCurrentPage('home')}
+            style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer', background: '#286993', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}
+          >
+            Go to Home
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
-
-export default App
