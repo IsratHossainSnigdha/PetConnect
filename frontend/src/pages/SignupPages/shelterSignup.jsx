@@ -34,14 +34,13 @@ export default function ShelterSignup({
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // নামের ফিল্ডগুলোতে ডিজিট রেস্ট্রিক্ট করার লজিক (শুধুমাত্র অক্ষর ও স্পেস এলাউড)
+
     if (name === 'staffName' || name === 'shelterName') {
       const filteredValue = value.replace(/[0-9]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
       return;
     }
 
-    // ফোন নম্বরের ফিল্ডগুলোতে লেটার রেস্ট্রিক্ট করার লজিক (শুধুমাত্র সংখ্যা এলাউড)
     if (name === 'shelterNumber' || name === 'staffNumber') {
       const filteredValue = value.replace(/[^0-9+]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
@@ -54,14 +53,13 @@ export default function ShelterSignup({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // নামের মধ্যে কোনো ডিজিট বা ইনভ্যালিড ক্যারেক্টার আছে কিনা ফাইনাল চেক
     const nameRegex = /^[A-Za-z\s]+$/;
     if (!nameRegex.test(formData.staffName) || !nameRegex.test(formData.shelterName)) {
       alert("Names cannot contain numbers or special characters. Please use letters only.");
       return;
     }
 
-    // পাসওয়ার্ড স্ট্রেন্থ ভ্যালিডেশন চেক (মিনিমাম ৮, আপারকেস, লোওয়ারকেস, ডিজিট এবং স্পেশাল ক্যারেক্টার বাধ্যবাধকতা)
+    
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character (e.g., @$!%*?&).");
