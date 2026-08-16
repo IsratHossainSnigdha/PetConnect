@@ -76,6 +76,16 @@ export default function App() {
         element={<ShelterDashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
       />
 
+      <Route
+  path="/signup/staff"
+  element={
+    <ShelterSignup
+      darkMode={darkMode}
+      toggleDarkMode={toggleDarkMode}
+    />
+  }
+/>
+
       {/* Profile Pages */}
       <Route
         path="/profile/admin"

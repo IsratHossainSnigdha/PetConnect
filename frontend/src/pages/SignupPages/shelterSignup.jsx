@@ -51,31 +51,78 @@ const API = import.meta.env.VITE_API_URL;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(formData.staffName) || !nameRegex.test(formData.shelterName)) {
-      alert("Names cannot contain numbers or special characters. Please use letters only.");
-      return;
-    }
+  const nameRegex = /^[A-Za-z\s]+$/;
+  if (!nameRegex.test(formData.staffName) || !nameRegex.test(formData.shelterName)) {
+    alert("Names cannot contain numbers or special characters.");
+    return;
+  }
 
-    
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character (e.g., @$!%*?&).");
-      return;
-    }
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+  if (!passwordRegex.test(formData.password)) {
+    alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.");
+    return;
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${API}/auth/shelter/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        staffName: formData.staffName.trim(),
+        shelterName: formData.shelterName.trim(),
+        shelterNumber: formData.shelterNumber.trim(),
+        staffNumber: formData.staffNumber.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (data.errors) {
+        alert(Object.values(data.errors).flat().join("\n"));
+      } else {
+        alert(data.message || "Registration failed.");
+      }
       return;
     }
 
     alert("Shelter Staff Account Created Successfully!");
-navigate("/dashboard/shelter");
-  };
 
+    setFormData({
+      staffName: "",
+      shelterName: "",
+      shelterNumber: "",
+      staffNumber: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    });
+
+    navigate("/dashboard/shelter");
+  } catch (error) {
+    alert("Cannot connect to the server.");
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <>
       <style>{`
@@ -623,9 +670,9 @@ navigate("/dashboard/shelter");
                 </div>
               </div>
 
-              <button type="submit" className="submit-btn">
-                REGISTER AS STAFF
-              </button>
+             <button type="submit" className="submit-btn" disabled={loading}>
+  {loading ? "Creating Account..." : "REGISTER AS STAFF"}
+</button>
             </form>
 
             <div className="auth-footer-text">
