@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Dog,
   Heart,
@@ -16,9 +17,9 @@ import {
 
 export default function AdopterSignup({
   darkMode,
-  toggleDarkMode,
-  setCurrentPage
+  toggleDarkMode
 }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -96,9 +97,7 @@ export default function AdopterSignup({
 
     alert("Adopter Account Created Successfully!");
 
-    if (setCurrentPage) {
-      setCurrentPage("login");
-    }
+    navigate("/dashboard/adopter");
   } catch (error) {
     console.error(error);
     alert("Cannot connect to the server.");
@@ -513,7 +512,7 @@ export default function AdopterSignup({
 
         {/* Navbar */}
         <nav className="navbar">
-          <div className="logo" onClick={() => setCurrentPage && setCurrentPage('landing')}>
+          <div className="logo" onClick={() => navigate("/")}>
             <div className="logo-icon">
               <Dog size={24} />
             </div>
@@ -539,7 +538,7 @@ export default function AdopterSignup({
 
             <button
               className="back-btn"
-              onClick={() => setCurrentPage && setCurrentPage('global-signup')}
+              onClick={() => navigate("/signup")}
             >
               <ArrowLeft size={16} /> Back
             </button>

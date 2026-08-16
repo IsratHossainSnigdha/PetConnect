@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 class ShelterRegisterController extends Controller
@@ -23,17 +24,17 @@ class ShelterRegisterController extends Controller
                 Password::min(8)
                     ->mixedCase()
                     ->numbers()
-                    ->symbols()
+                    ->symbols(),
             ],
         ]);
 
         $user = User::create([
             'name' => $validated['staffName'],
-            'email' => $validated['email'],
+            'email' => strtolower($validated['email']),
             'phone' => $validated['staffNumber'],
             'shelter_name' => $validated['shelterName'],
             'shelter_contact' => $validated['shelterNumber'],
-            'password' => $validated['password'],
+            'password' => Hash::make($validated['password']),
             'role' => 'shelter_staff',
         ]);
 

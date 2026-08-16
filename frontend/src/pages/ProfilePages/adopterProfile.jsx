@@ -1,7 +1,7 @@
-export default function ShelterDashboard() {
+export default function AdopterProfile() {
   return (
     <div>
-      <h1>Shelter Dashboard</h1>
+      <h1>Adopter Profile</h1>
     </div>
   );
 }
