@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Dog,
   Sun,
@@ -13,11 +14,8 @@ import {
   EyeOff
 } from 'lucide-react';
 
-export default function ShelterSignup({
-  darkMode,
-  toggleDarkMode,
-  setCurrentPage
-}) {
+export default function ShelterSignup({ darkMode, toggleDarkMode }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     staffName: '',
     shelterName: '',
@@ -30,6 +28,9 @@ export default function ShelterSignup({
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+const API = import.meta.env.VITE_API_URL;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,9 +73,7 @@ export default function ShelterSignup({
     }
 
     alert("Shelter Staff Account Created Successfully!");
-    if (setCurrentPage) {
-      setCurrentPage('login');
-    }
+navigate("/dashboard/shelter");
   };
 
   return (
@@ -465,7 +464,7 @@ export default function ShelterSignup({
         <div className="paw-pattern-bg"></div>
 
         <nav className="navbar">
-          <div className="logo" onClick={() => setCurrentPage && setCurrentPage('landing')}>
+          <div className="logo"onClick={() => navigate("/")}>
             <div className="logo-icon">
               <Dog size={24} />
             </div>
@@ -491,7 +490,7 @@ export default function ShelterSignup({
 
             <button
               className="back-btn"
-              onClick={() => setCurrentPage && setCurrentPage('global-signup')}
+             onClick={() => navigate("/signup")}
             >
               <ArrowLeft size={16} /> Back
             </button>
@@ -631,7 +630,7 @@ export default function ShelterSignup({
 
             <div className="auth-footer-text">
               Already have an account?{' '}
-              <span onClick={() => setCurrentPage && setCurrentPage('login')}>
+              <span onClick={() => navigate("/login")}>
                 Log In
               </span>
             </div>
