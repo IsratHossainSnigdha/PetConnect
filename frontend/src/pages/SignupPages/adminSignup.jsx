@@ -70,10 +70,10 @@ export default function AdminSignup({ darkMode, toggleDarkMode, setCurrentPage }
       return;
     }
 
-    // এখানে আপনার অ্যাডমিন রেজিস্ট্রেশনের ব্যাকএন্ড লজিক হ্যান্ডেল করতে পারেন
     alert('Admin Registration Submitted Successfully!');
     if (setCurrentPage) {
-      setCurrentPage('admin-portal');
+      // Signup successful hole Admin Dashboard-e niye jabe
+      setCurrentPage('admin-dashboard');
     }
   };
 
