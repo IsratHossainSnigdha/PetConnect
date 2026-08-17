@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
+
+// Saves the API token + user into localStorage, so the app is logged in.
+import { setSession } from "../../api/client";
 import {
   Dog,
   Sun,
@@ -115,6 +118,10 @@ const API = import.meta.env.VITE_API_URL;
       password: "",
       confirmPassword: "",
     });
+
+    // AUTO-LOGIN: the register endpoint returns a token, so save it and the
+    // app is already authenticated - no second password prompt.
+    setSession(data.token, data.user);
 
     navigate("/dashboard/shelter");
   } catch (error) {

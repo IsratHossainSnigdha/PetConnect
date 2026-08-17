@@ -41,8 +41,23 @@ class AdminRegisterController extends Controller
             'role' => 'platform_admin',
         ]);
 
+        /*
+        | AUTO-LOGIN AFTER SIGNUP
+        |
+        | Creating the users row proves who this person is just as well as a
+        | login would - they chose the password seconds ago. So instead of
+        | making them type it straight back in, we issue the token here.
+        |
+        | createToken() INSERTs a row into `personal_access_tokens` (only a
+        | HASH of the token is stored). The plain token is returned exactly
+        | once, right here, and the browser saves it - identical to what
+        | AuthController@login does.
+        */
+        $token = $user->createToken('petconnect-' . $user->role)->plainTextToken;
+
         return response()->json([
             'message' => 'Platform admin registered successfully.',
+            'token' => $token,
             'user' => $user
         ], 201);
     }
