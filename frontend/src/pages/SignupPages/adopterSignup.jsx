@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-
-// Saves the API token + user into localStorage, so the app is logged in.
-import { setSession } from "../../api/client";
 import {
   Dog,
   Heart,
@@ -99,10 +96,6 @@ export default function AdopterSignup({
     }
 
     alert("Adopter Account Created Successfully!");
-
-    // AUTO-LOGIN: the register endpoint returns a token, so save it and the
-    // app is already authenticated - no second password prompt.
-    setSession(data.token, data.user);
 
     navigate("/dashboard/adopter");
   } catch (error) {

@@ -35,14 +35,8 @@ class RegisterController extends Controller
             'role' => 'adopter'
         ]);
 
-        // Auto-login: issue the API token now, so the adopter lands straight on
-        // their dashboard instead of being asked for the password they just
-        // chose. See AdminRegisterController for the full explanation.
-        $token = $user->createToken('petconnect-' . $user->role)->plainTextToken;
-
         return response()->json([
             'message' => 'Adopter account created successfully.',
-            'token' => $token,
             'user' => $user
         ],201);
     }

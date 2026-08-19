@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dog,
@@ -15,275 +15,33 @@ import {
   MapPin,
   User,
   KeyRound,
-  Eye,
-  EyeOff,
 } from "lucide-react";
-
-import { fetchMe, updateProfile, changePassword } from "../../api/auth";
-
-/*
-|------------------------------------------------------------------------------
-| ADMIN PROFILE  -  reading and writing YOUR OWN row in the users table
-|------------------------------------------------------------------------------
-|
-| This page used to display a hard-coded "Alex Morgan". Nothing was stored, so
-| pressing Save only changed a variable in memory and a refresh wiped it.
-|
-| Now it is a genuine read/write view of one database row:
-|
-|     page loads   ->  GET /api/auth/me      ->  SELECT * FROM users WHERE id = ?
-|     press Save   ->  PUT /api/auth/profile ->  UPDATE users SET ... WHERE id = ?
-|
-| WHICH row? The server works that out from the Bearer token, never from
-| anything the browser sends. That is deliberate: if the browser could name the
-| id, anyone could edit anyone else's profile just by changing a number.
-|
-| COLUMN NAMING NOTE
-| The screen says "Location" but the column has always been called `address`.
-| Rather than rename a column other code already reads, we translate between
-| the two names in loadProfile() and handleSave() below. Renaming a live column
-| is a breaking change; mapping a label is free.
-*/
-
-// The users table stores a role as an ENUM value like 'platform_admin'.
-// This turns that into something worth showing a human.
-const ROLE_LABELS = {
-  platform_admin: "Global Admin",
-  shelter_staff: "Shelter Staff",
-  adopter: "Adopter",
-};
 
 export default function AdminProfile({ darkMode }) {
   const navigate = useNavigate();
 
   const [editing, setEditing] = useState(false);
 
-  // Starts EMPTY, not with fake data. Showing invented values while the real
-  // ones load would mean the user briefly reads something untrue.
   const [profile, setProfile] = useState({
-    name: "",
-    username: "",
-    email: "",
-    phone: "",
-    location: "",
-    role: "",
+    name: "Alex Morgan",
+    username: "alex.m",
+    email: "alex.morgan@petconnect.com",
+    phone: "+880 1712-345678",
+    location: "Dhaka, Bangladesh",
+    role: "Global Admin",
   });
 
   const [tempProfile, setTempProfile] = useState(profile);
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // created_at from the database, shown as "Member Since".
-  const [memberSince, setMemberSince] = useState("");
-
-  /*
-  | PASSWORD CHANGE state.
-  |
-  | Kept completely separate from `profile`. Passwords are never loaded from
-  | the server (only their bcrypt hash exists, and it never leaves the
-  | database), so these fields start blank and are wiped after every attempt.
-  */
-  const [pwOpen, setPwOpen] = useState(false);
-  const [pwForm, setPwForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [pwErrors, setPwErrors] = useState({});
-  const [pwSaving, setPwSaving] = useState(false);
-
-  // Show/hide toggles for the password inputs.
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-
-  // users.password_changed_at - null for accounts that never changed it.
-  const [passwordChangedAt, setPasswordChangedAt] = useState(null);
-
-  /*
-  | "Now", captured ONCE when the page opens.
-  |
-  | Calling Date.now() while rendering would make the component impure: the
-  | same state could produce a different result on each re-render. Reading the
-  | clock in a useState initialiser happens exactly once, which keeps rendering
-  | predictable. A "days ago" label does not need to tick live anyway.
-  */
-  const [nowMs] = useState(() => Date.now());
-
-  /*
-  | READ  ->  GET /api/auth/me
-  |
-  | Runs once when the page mounts. The empty dependency array [] is what means
-  | "once" - leave it out and this would re-run on every render, hammering the
-  | database in an infinite loop.
-  */
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfile() {
-      try {
-        const user = await fetchMe();
-        if (cancelled) return;
-
-        const mapped = {
-          name: user.name ?? "",
-          // The column is NULLable, so it can genuinely be null. ?? "" keeps
-          // React inputs "controlled" - passing null would make React warn
-          // about switching between controlled and uncontrolled inputs.
-          username: user.username ?? "",
-          email: user.email ?? "",
-          phone: user.phone ?? "",
-          location: user.address ?? "",     // column `address` -> label "Location"
-          role: ROLE_LABELS[user.role] ?? user.role,
-        };
-
-        setProfile(mapped);
-        setTempProfile(mapped);
-
-        // created_at is filled in automatically by the timestamps() columns.
-        if (user.created_at) {
-          setMemberSince(
-            new Date(user.created_at).toLocaleDateString(undefined, {
-              month: "long",
-              year: "numeric",
-            })
-          );
-        }
-
-        // NULL until the password is changed for the first time. We fall back
-        // to created_at in the label below, rather than inventing a date.
-        setPasswordChangedAt(user.password_changed_at ?? null);
-      } catch (error) {
-        if (!cancelled) setLoadError(error.message);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadProfile();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const handleEdit = () => {
-    // Copy the saved values into the draft. Editing a COPY is what lets Cancel
-    // work - the original stays untouched until the UPDATE actually succeeds.
     setTempProfile(profile);
     setEditing(true);
   };
 
-  /*
-  | "Last changed ..." - turns a timestamp into readable text.
-  |
-  | If password_changed_at is NULL the password has never been rotated, so we
-  | describe it from the account's creation date instead of guessing.
-  */
-  const passwordAgeLabel = () => {
-    const stamp = passwordChangedAt;
-
-    if (!stamp) {
-      return memberSince ? `Never changed since ${memberSince}` : "Never changed";
-    }
-
-    // 86400000 = milliseconds in a day
-    const days = Math.floor((nowMs - new Date(stamp)) / 86400000);
-
-    if (days <= 0) return "Last changed today";
-    if (days === 1) return "Last changed yesterday";
-    return `Last changed ${days} days ago`;
+  const handleSave = () => {
+    setProfile(tempProfile);
+    setEditing(false);
   };
-
-  const openPasswordModal = () => {
-    setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    setPwErrors({});
-    setPwOpen(true);
-  };
-
-  /*
-  | CHANGE PASSWORD  ->  PUT /api/auth/password
-  */
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setPwSaving(true);
-    setPwErrors({});
-
-    try {
-      const result = await changePassword(pwForm);
-
-      // Update the label immediately from the row the server returned.
-      setPasswordChangedAt(result.user.password_changed_at ?? new Date().toISOString());
-
-      setPwOpen(false);
-      setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-
-      // revoked_sessions counts the OTHER token rows that were deleted, i.e.
-      // other devices that have just been signed out.
-      alert(
-        result.revoked_sessions > 0
-          ? `Password changed. ${result.revoked_sessions} other session(s) were signed out.`
-          : "Password changed successfully."
-      );
-    } catch (error) {
-      if (error.status === 422) {
-        // Per-field messages, e.g.
-        //   current_password: ["Your current password is incorrect."]
-        //   password: ["The new password must be different from your current one."]
-        setPwErrors(error.errors || {});
-      } else {
-        alert(error.message);
-      }
-    } finally {
-      setPwSaving(false);
-      // Never leave the typed password sitting in memory longer than needed.
-      setPwForm((prev) => ({ ...prev, currentPassword: "" }));
-    }
-  };
-
-  /*
-  | WRITE  ->  PUT /api/auth/profile
-  */
-  const handleSave = async () => {
-    setSaving(true);
-
-    try {
-      const updated = await updateProfile({
-        name: tempProfile.name,
-        // Send null rather than "" for an empty username. The column is
-        // NULLable and UNIQUE: many rows may be NULL, but two rows both
-        // holding the empty string "" would collide with each other.
-        username: tempProfile.username || null,
-        email: tempProfile.email,
-        phone: tempProfile.phone || null,
-        address: tempProfile.location || null,   // label "Location" -> column `address`
-      });
-
-      // Rebuild state from the SERVER's response, not from tempProfile. The
-      // response is what is actually stored - it reflects any trimming or
-      // normalising the backend applied.
-      const mapped = {
-        name: updated.name ?? "",
-        username: updated.username ?? "",
-        email: updated.email ?? "",
-        phone: updated.phone ?? "",
-        location: updated.address ?? "",
-        role: ROLE_LABELS[updated.role] ?? updated.role,
-      };
-
-      setProfile(mapped);
-      setTempProfile(mapped);
-      setEditing(false);
-    } catch (error) {
-      // A 422 lands here too - e.g. that username already belongs to somebody
-      // else, which is the UNIQUE index doing its job.
-      alert(error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
 
   return (
     <>
@@ -843,157 +601,6 @@ export default function AdminProfile({ darkMode }) {
           cursor: pointer;
         }
 
-        /* Change-password modal */
-
-        .pw-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(16, 44, 69, 0.45);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 60;
-          padding: 20px;
-        }
-
-        .pw-card {
-          background: #ffffff;
-          border-radius: 14px;
-          width: 100%;
-          max-width: 420px;
-          max-height: 90vh;
-          overflow-y: auto;
-          padding: 24px;
-          box-shadow: 0 20px 50px rgba(16, 44, 69, 0.3);
-        }
-
-        .pw-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          margin-bottom: 18px;
-        }
-
-        .pw-header h3 {
-          font-size: 17px;
-          font-weight: 700;
-          color: #102c45;
-        }
-
-        .pw-header p {
-          font-size: 12px;
-          color: #64748b;
-          margin-top: 3px;
-        }
-
-        .pw-close {
-          background: rgba(40, 105, 147, 0.1);
-          border: none;
-          border-radius: 8px;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          color: #286993;
-          flex-shrink: 0;
-        }
-
-        .pw-field {
-          margin-bottom: 14px;
-        }
-
-        .pw-field label {
-          display: block;
-          font-size: 12px;
-          font-weight: 600;
-          color: #102c45;
-          margin-bottom: 5px;
-        }
-
-        .pw-input-wrap {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          border: 1px solid rgba(40, 105, 147, 0.25);
-          border-radius: 9px;
-          padding: 10px 12px;
-          background: #fff;
-        }
-
-        .pw-input-wrap:focus-within {
-          border-color: #286993;
-        }
-
-        .pw-input-wrap.has-error {
-          border-color: #ef4444;
-        }
-
-        .pw-input-wrap input {
-          border: none;
-          outline: none;
-          flex: 1;
-          font-size: 13px;
-          color: #102c45;
-          background: transparent;
-        }
-
-        .pw-eye {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: #64748b;
-          display: flex;
-        }
-
-        .pw-error {
-          color: #b91c1c;
-          font-size: 11px;
-          margin-top: 4px;
-        }
-
-        .pw-hint {
-          background: rgba(40, 105, 147, 0.07);
-          border-radius: 9px;
-          padding: 10px 12px;
-          font-size: 11px;
-          color: #475569;
-          line-height: 1.6;
-          margin-bottom: 15px;
-        }
-
-        .pw-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-          margin-top: 18px;
-        }
-
-        .pw-actions button {
-          padding: 9px 16px;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          border: none;
-        }
-
-        .pw-cancel {
-          background: rgba(100, 116, 139, 0.12);
-          color: #475569;
-        }
-
-        .pw-submit {
-          background: #286993;
-          color: #fff;
-        }
-
-        .pw-submit:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
         /* Activity */
 
         .activity-list {
@@ -1160,23 +767,6 @@ export default function AdminProfile({ darkMode }) {
             </p>
           </div>
 
-          {/*
-            Three distinct states, shown differently on purpose:
-            loading / failed / loaded. Never render a form full of blanks while
-            a request is still running - it looks like empty data.
-          */}
-          {loading && (
-            <p style={{ color: "#64748b", fontSize: "14px", marginBottom: "16px" }}>
-              Loading your profile from the database...
-            </p>
-          )}
-
-          {loadError && (
-            <p style={{ color: "#b91c1c", fontSize: "14px", marginBottom: "16px" }}>
-              {loadError}
-            </p>
-          )}
-
 
           <div className="profile-grid">
 
@@ -1186,14 +776,9 @@ export default function AdminProfile({ darkMode }) {
 
               <div className="profile-avatar-wrapper">
 
-                {/*
-                  There is no avatar column in the users table yet, so this
-                  stays a placeholder image. The alt text at least uses the
-                  real name now.
-                */}
                 <img
                   src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"
-                  alt={profile.name || "Administrator"}
+                  alt="Alex Morgan"
                   className="profile-avatar"
                 />
 
@@ -1268,8 +853,7 @@ export default function AdminProfile({ darkMode }) {
 
                   <div className="meta-text">
                     <small>Member Since</small>
-                    {/* Derived from users.created_at, set by timestamps() */}
-                    <span>{memberSince || "-"}</span>
+                    <span>January 2024</span>
                   </div>
 
                 </div>
@@ -1470,14 +1054,7 @@ export default function AdminProfile({ darkMode }) {
 
                   <button
                     className="cancel-btn"
-                    onClick={() => {
-                      // Throw the draft away and restore the saved values.
-                      // Nothing was written, so there is nothing to undo in
-                      // the database.
-                      setTempProfile(profile);
-                      setEditing(false);
-                    }}
-                    disabled={saving}
+                    onClick={() => setEditing(false)}
                   >
                     <X size={14} />
                     Cancel
@@ -1486,10 +1063,9 @@ export default function AdminProfile({ darkMode }) {
                   <button
                     className="save-btn"
                     onClick={handleSave}
-                    disabled={saving}
                   >
                     <Save size={14} />
-                    {saving ? "Saving..." : "Save Changes"}
+                    Save Changes
                   </button>
 
                 </div>
@@ -1532,15 +1108,14 @@ export default function AdminProfile({ darkMode }) {
 
                   <div>
                     <strong>Password</strong>
-                    {/* Derived from users.password_changed_at */}
                     <span>
-                      {passwordAgeLabel()}
+                      Last changed 30 days ago
                     </span>
                   </div>
 
                 </div>
 
-                <button className="security-action" onClick={openPasswordModal}>
+                <button className="security-action">
                   Change
                 </button>
 
@@ -1704,126 +1279,6 @@ export default function AdminProfile({ darkMode }) {
         </main>
 
       </div>
-
-      {/*
-      |------------------------------------------------------------------------
-      | CHANGE PASSWORD MODAL
-      |------------------------------------------------------------------------
-      |
-      | Three fields, none of them ever pre-filled. The current password is
-      | required even though you are already logged in - that is what stops
-      | somebody who grabbed your session from locking you out of your own
-      | account.
-      */}
-      {pwOpen && (
-        <div className="pw-backdrop">
-          <div className="pw-card">
-
-            <div className="pw-header">
-              <div>
-                <h3>Change Password</h3>
-                <p>UPDATE users SET password = &lt;new hash&gt; WHERE id = you</p>
-              </div>
-              <button className="pw-close" onClick={() => setPwOpen(false)}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="pw-hint">
-              Your password is stored only as a one-way <strong>bcrypt hash</strong>,
-              so it can never be read back out of the database - not even by an
-              administrator. Changing it also signs you out everywhere else.
-            </div>
-
-            <form onSubmit={handleChangePassword}>
-
-              <div className="pw-field">
-                <label>Current Password</label>
-                <div className={`pw-input-wrap ${pwErrors.current_password ? "has-error" : ""}`}>
-                  <Lock size={15} color="#64748b" />
-                  <input
-                    type={showCurrentPw ? "text" : "password"}
-                    value={pwForm.currentPassword}
-                    onChange={(e) =>
-                      setPwForm({ ...pwForm, currentPassword: e.target.value })
-                    }
-                    placeholder="The password you use now"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="pw-eye"
-                    onClick={() => setShowCurrentPw(!showCurrentPw)}
-                  >
-                    {showCurrentPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-                {pwErrors.current_password && (
-                  <div className="pw-error">{pwErrors.current_password[0]}</div>
-                )}
-              </div>
-
-              <div className="pw-field">
-                <label>New Password</label>
-                <div className={`pw-input-wrap ${pwErrors.password ? "has-error" : ""}`}>
-                  <KeyRound size={15} color="#64748b" />
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    value={pwForm.newPassword}
-                    onChange={(e) =>
-                      setPwForm({ ...pwForm, newPassword: e.target.value })
-                    }
-                    placeholder="At least 8 chars, mixed case, number, symbol"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="pw-eye"
-                    onClick={() => setShowNewPw(!showNewPw)}
-                  >
-                    {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-                {pwErrors.password && (
-                  <div className="pw-error">{pwErrors.password[0]}</div>
-                )}
-              </div>
-
-              <div className="pw-field">
-                <label>Confirm New Password</label>
-                <div className="pw-input-wrap">
-                  <KeyRound size={15} color="#64748b" />
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    value={pwForm.confirmPassword}
-                    onChange={(e) =>
-                      setPwForm({ ...pwForm, confirmPassword: e.target.value })
-                    }
-                    placeholder="Type the new password again"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="pw-actions">
-                <button
-                  type="button"
-                  className="pw-cancel"
-                  onClick={() => setPwOpen(false)}
-                  disabled={pwSaving}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="pw-submit" disabled={pwSaving}>
-                  {pwSaving ? "Updating..." : "Update Password"}
-                </button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>
-      )}
     </>
   );
 }
