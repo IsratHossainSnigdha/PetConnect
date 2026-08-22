@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
+
+// Saves the API token + user into localStorage, so the app is logged in.
+import { setSession } from "../../api/client";
 import {
   Dog,
   Sun,
@@ -13,11 +17,8 @@ import {
   EyeOff
 } from 'lucide-react';
 
-export default function ShelterSignup({
-  darkMode,
-  toggleDarkMode,
-  setCurrentPage
-}) {
+export default function ShelterSignup({ darkMode, toggleDarkMode }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     staffName: '',
     shelterName: '',
@@ -30,18 +31,20 @@ export default function ShelterSignup({
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+const API = import.meta.env.VITE_API_URL;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // নামের ফিল্ডগুলোতে ডিজিট রেস্ট্রিক্ট করার লজিক (শুধুমাত্র অক্ষর ও স্পেস এলাউড)
+
     if (name === 'staffName' || name === 'shelterName') {
       const filteredValue = value.replace(/[0-9]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
       return;
     }
 
-    // ফোন নম্বরের ফিল্ডগুলোতে লেটার রেস্ট্রিক্ট করার লজিক (শুধুমাত্র সংখ্যা এলাউড)
     if (name === 'shelterNumber' || name === 'staffNumber') {
       const filteredValue = value.replace(/[^0-9+]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
@@ -51,34 +54,82 @@ export default function ShelterSignup({
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    // নামের মধ্যে কোনো ডিজিট বা ইনভ্যালিড ক্যারেক্টার আছে কিনা ফাইনাল চেক
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(formData.staffName) || !nameRegex.test(formData.shelterName)) {
-      alert("Names cannot contain numbers or special characters. Please use letters only.");
-      return;
-    }
+  const nameRegex = /^[A-Za-z\s]+$/;
+  if (!nameRegex.test(formData.staffName) || !nameRegex.test(formData.shelterName)) {
+    alert("Names cannot contain numbers or special characters.");
+    return;
+  }
 
-    // পাসওয়ার্ড স্ট্রেন্থ ভ্যালিডেশন চেক (মিনিমাম ৮, আপারকেস, লোওয়ারকেস, ডিজিট এবং স্পেশাল ক্যারেক্টার বাধ্যবাধকতা)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character (e.g., @$!%*?&).");
-      return;
-    }
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+  if (!passwordRegex.test(formData.password)) {
+    alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.");
+    return;
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${API}/auth/shelter/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        staffName: formData.staffName.trim(),
+        shelterName: formData.shelterName.trim(),
+        shelterNumber: formData.shelterNumber.trim(),
+        staffNumber: formData.staffNumber.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (data.errors) {
+        alert(Object.values(data.errors).flat().join("\n"));
+      } else {
+        alert(data.message || "Registration failed.");
+      }
       return;
     }
 
     alert("Shelter Staff Account Created Successfully!");
-    if (setCurrentPage) {
-      setCurrentPage('login');
-    }
-  };
 
+    setFormData({
+      staffName: "",
+      shelterName: "",
+      shelterNumber: "",
+      staffNumber: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    });
+
+    // AUTO-LOGIN: the register endpoint returns a token, so save it and the
+    // app is already authenticated - no second password prompt.
+    setSession(data.token, data.user);
+
+    navigate("/dashboard/shelter");
+  } catch (error) {
+    alert("Cannot connect to the server.");
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <>
       <style>{`
@@ -467,7 +518,7 @@ export default function ShelterSignup({
         <div className="paw-pattern-bg"></div>
 
         <nav className="navbar">
-          <div className="logo" onClick={() => setCurrentPage && setCurrentPage('landing')}>
+          <div className="logo"onClick={() => navigate("/")}>
             <div className="logo-icon">
               <Dog size={24} />
             </div>
@@ -493,7 +544,7 @@ export default function ShelterSignup({
 
             <button
               className="back-btn"
-              onClick={() => setCurrentPage && setCurrentPage('global-signup')}
+             onClick={() => navigate("/signup")}
             >
               <ArrowLeft size={16} /> Back
             </button>
@@ -626,14 +677,14 @@ export default function ShelterSignup({
                 </div>
               </div>
 
-              <button type="submit" className="submit-btn">
-                REGISTER AS STAFF
-              </button>
+             <button type="submit" className="submit-btn" disabled={loading}>
+  {loading ? "Creating Account..." : "REGISTER AS STAFF"}
+</button>
             </form>
 
             <div className="auth-footer-text">
               Already have an account?{' '}
-              <span onClick={() => setCurrentPage && setCurrentPage('login')}>
+              <span onClick={() => navigate("/login")}>
                 Log In
               </span>
             </div>
