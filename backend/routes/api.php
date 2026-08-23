@@ -11,70 +11,161 @@ use App\Http\Controllers\Auth\ShelterRegisterController;
 use App\Http\Controllers\Admin\ShelterController;
 use App\Http\Controllers\Admin\StatsController;
 
+use App\Http\Controllers\Adopter\AdopterDashboardController;
+use App\Http\Controllers\Api\ComplaintController;
+
+
 /*
-|==============================================================================
-| PUBLIC ROUTES - no token required
-|==============================================================================
+|--------------------------------------------------------------------------
+| PUBLIC ROUTES
+|--------------------------------------------------------------------------
 |
-| Signing up and logging in obviously cannot require you to be logged in
-| already, so these sit outside the protected group below.
+| These routes do not require authentication.
+|
 */
 
 Route::post('/auth/login', [AuthController::class, 'login']);
 
-Route::post('/auth/register', [RegisterController::class, 'register']);
-Route::post('/auth/admin/register', [AdminRegisterController::class, 'register']);
-Route::post('/auth/shelter/register', [ShelterRegisterController::class, 'register']);
+Route::post('/auth/register', [
+    RegisterController::class,
+    'register'
+]);
+
+Route::post('/auth/admin/register', [
+    AdminRegisterController::class,
+    'register'
+]);
+
+Route::post('/auth/shelter/register', [
+    ShelterRegisterController::class,
+    'register'
+]);
 
 
 /*
-|==============================================================================
-| AUTHENTICATED ROUTES - a valid Bearer token is required
-|==============================================================================
+|--------------------------------------------------------------------------
+| AUTHENTICATED ROUTES
+|--------------------------------------------------------------------------
 |
-| The auth:sanctum middleware takes the token from the
-|     Authorization: Bearer <token>
-| header, looks up its hash in the `personal_access_tokens` table, and loads
-| the owning user row. If no row matches, the request is rejected with 401 and
-| the controller never runs.
+| These routes require a valid Sanctum Bearer token.
 |
-| Any role may reach these - they only ever touch your OWN user row.
 */
+
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::get('/auth/me', [AuthController::class, 'me']);
-    Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
-    Route::put('/auth/password', [AuthController::class, 'updatePassword']);
-    Route::post('/auth/logout', [AuthController::class, 'logout']);
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication / User
+    |--------------------------------------------------------------------------
+    */
 
-    // Kept for backwards compatibility with anything already calling it.
-    Route::get('/user', fn (Request $request) => $request->user());
+    Route::get('/auth/me', [
+        AuthController::class,
+        'me'
+    ]);
+
+    Route::put('/auth/profile', [
+        AuthController::class,
+        'updateProfile'
+    ]);
+
+    Route::put('/auth/password', [
+        AuthController::class,
+        'updatePassword'
+    ]);
+
+    Route::post('/auth/logout', [
+        AuthController::class,
+        'logout'
+    ]);
+
+    // Backwards compatibility
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Adopter Dashboard
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/adopter/dashboard', [
+        AdopterDashboardController::class,
+        'index'
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Complaints
+    |--------------------------------------------------------------------------
+    |
+    | Adopters can:
+    | - View their complaints
+    | - Submit complaints
+    | - View a specific complaint
+    |
+    */
+
+    Route::get('/complaints', [
+        ComplaintController::class,
+        'index'
+    ]);
+
+    Route::post('/complaints', [
+        ComplaintController::class,
+        'store'
+    ]);
+
+    Route::get('/complaints/{complaint}', [
+        ComplaintController::class,
+        'show'
+    ]);
+
 });
 
 
 /*
-|==============================================================================
-| ADMIN-ONLY ROUTES - valid token AND role = 'platform_admin'
-|==============================================================================
+|--------------------------------------------------------------------------
+| ADMIN-ONLY ROUTES
+|--------------------------------------------------------------------------
 |
-| TWO middleware run in order, and each answers a different question:
+| Requires:
 |
-|     auth:sanctum -> "who are you?"     (401 if the token is missing/invalid)
-|     admin        -> "are you allowed?" (403 if role is not platform_admin)
+| 1. Valid Sanctum token
+| 2. admin middleware
+| 3. role = platform_admin
 |
-| apiResource() registers all five CRUD routes in one line:
-|
-|   GET    /api/admin/shelters        -> index()    SELECT every shelter
-|   POST   /api/admin/shelters        -> store()    INSERT one
-|   GET    /api/admin/shelters/{id}   -> show()     SELECT one
-|   PUT    /api/admin/shelters/{id}   -> update()   UPDATE one
-|   DELETE /api/admin/shelters/{id}   -> destroy()  DELETE one
-|
-| Run `php artisan route:list` to see them all printed out.
 */
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
-    Route::apiResource('admin/shelters', ShelterController::class);
+Route::middleware([
+    'auth:sanctum',
+    'admin'
+])->group(function () {
 
-    Route::get('/admin/stats', [StatsController::class, 'index']);
+    /*
+    |--------------------------------------------------------------------------
+    | Shelter Management
+    |--------------------------------------------------------------------------
+    */
+
+    Route::apiResource(
+        'admin/shelters',
+        ShelterController::class
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Statistics
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/admin/stats', [
+        StatsController::class,
+        'index'
+    ]);
+
 });

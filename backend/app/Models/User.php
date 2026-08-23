@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
@@ -66,4 +67,15 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Shelter::class, 'shelter_id');
     }
+
+    /**
+ * Adoption applications submitted by this user.
+ */
+public function applications(): HasMany
+{
+    return $this->hasMany(
+        Application::class,
+        'adopter_id'
+    );
+}
 }

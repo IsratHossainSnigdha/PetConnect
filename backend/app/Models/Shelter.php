@@ -76,4 +76,12 @@ class Shelter extends Model
         // lives on the OTHER table (users.shelter_id).
         return $this->hasMany(User::class, 'shelter_id');
     }
+
+    public function pets(): HasMany
+{
+    return $this->hasMany(
+        Pet::class,
+        'shelter_id'
+    );
+}
 }
