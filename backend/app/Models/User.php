@@ -42,10 +42,12 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+
             // Casting to 'datetime' hands PHP a Carbon date object instead of a
             // raw string, and serialises it to ISO-8601 in JSON so the browser's
             // new Date(...) can parse it.
             'password_changed_at' => 'datetime',
+
             'password' => 'hashed',
         ];
     }
@@ -65,17 +67,31 @@ class User extends Authenticatable
      */
     public function shelter(): BelongsTo
     {
-        return $this->belongsTo(Shelter::class, 'shelter_id');
+        return $this->belongsTo(
+            Shelter::class,
+            'shelter_id'
+        );
     }
 
     /**
- * Adoption applications submitted by this user.
- */
-public function applications(): HasMany
-{
-    return $this->hasMany(
-        Application::class,
-        'adopter_id'
-    );
-}
+     * Adoption applications submitted by this user.
+     */
+    public function applications(): HasMany
+    {
+        return $this->hasMany(
+            Application::class,
+            'adopter_id'
+        );
+    }
+
+    /**
+     * Complaints submitted by this user.
+     */
+    public function complaints(): HasMany
+    {
+        return $this->hasMany(
+            Complaint::class,
+            'user_id'
+        );
+    }
 }

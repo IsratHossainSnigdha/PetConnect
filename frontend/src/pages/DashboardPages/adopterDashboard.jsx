@@ -1,538 +1,1347 @@
-import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Search, 
-  FileText, 
-  MessageSquare, 
-  User, 
-  Settings as SettingsIcon, 
-  LogOut, 
-  Bell, 
-  ChevronDown, 
-  Heart, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  ChevronRight, 
-  Calendar, 
-  PawPrint, 
-  Send
-} from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-export default function AdopterDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+import {
+  Dog,
+  LayoutDashboard,
+  FileText,
+  User,
+  Settings,
+  Search,
+  Bell,
+  LogOut,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  Heart,
+  Clock,
+  CheckCircle,
+  XCircle,
+  ChevronRight,
+  PawPrint,
+  Flag,
+} from "lucide-react";
 
-  return (
-    <div className="flex h-screen bg-[#F8F9FA] font-sans text-slate-800">
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#7A3E23] text-white flex flex-col justify-between shrink-0">
-        <div>
-          {/* Logo / Brand */}
-          <div className="flex items-center gap-3 px-6 py-6 border-b border-[#8E4D30]">
-            <div className="bg-white/10 p-2.5 rounded-xl">
-              <PawPrint className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg tracking-tight leading-none">Paw Rescue</h1>
-              <p className="text-xs text-[#EAD5CE] mt-1">Adoption Portal</p>
-            </div>
+import {
+  apiFetch,
+  getToken,
+  getCachedUser,
+  setSession,
+  clearSession,
+} from "../../api/client";
+
+import "./adopterDashboard.css";
+
+export default function AdopterDashboard({
+  darkMode,
+  toggleDarkMode,
+}) {
+  const navigate = useNavigate();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activePage, setActivePage] = useState("dashboard");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  /* =========================
+     BACKEND DATA
+  ========================= */
+
+  const [dashboardData, setDashboardData] = useState(null);
+  const [applications, setApplications] = useState([]);
+
+  /*
+   * Get cached user immediately so the
+   * profile name can appear without waiting
+   * for the API request.
+   */
+  const [currentUser, setCurrentUser] = useState(
+    getCachedUser()
+  );
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  /* =========================
+     FETCH ADOPTER DASHBOARD
+  ========================= */
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = getToken();
+
+        /*
+         * No authentication token means
+         * the user is not logged in.
+         */
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        /*
+         * --------------------------------------------------
+         * GET CURRENT AUTHENTICATED USER
+         * --------------------------------------------------
+         *
+         * This gets the latest user information directly
+         * from Laravel's users table.
+         *
+         * This is especially important after editing the
+         * profile because the name may have changed.
+         */
+        const userResponse = await apiFetch(
+          "/auth/me"
+        );
+
+        const authenticatedUser =
+          userResponse.user;
+
+        setCurrentUser(authenticatedUser);
+
+        /*
+         * Keep the cached user synchronized
+         * with the database.
+         */
+        setSession(
+          token,
+          authenticatedUser
+        );
+
+        /*
+         * --------------------------------------------------
+         * GET ADOPTER DASHBOARD DATA
+         * --------------------------------------------------
+         */
+        const data = await apiFetch(
+          "/adopter/dashboard"
+        );
+
+        console.log(
+          "Adopter dashboard response:",
+          data
+        );
+
+        setDashboardData(data);
+
+        setApplications(
+          Array.isArray(data.applications)
+            ? data.applications
+            : []
+        );
+
+      } catch (err) {
+        console.error(
+          "Dashboard error:",
+          err
+        );
+
+        /*
+         * Token is invalid or expired.
+         */
+        if (err.status === 401) {
+          clearSession();
+          navigate("/login");
+          return;
+        }
+
+        setError(
+          err.message ||
+          "Unable to load dashboard."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, [navigate]);
+
+  /* =========================
+     NAVIGATION
+  ========================= */
+
+  const handleNavigation = (page) => {
+    setActivePage(page);
+    setSidebarOpen(false);
+
+    if (page === "dashboard") {
+      navigate("/dashboard/adopter");
+    }
+
+    if (page === "profile") {
+      navigate("/profile/adopter");
+    }
+
+    if (page === "applications") {
+      navigate("/applications/adopter");
+    }
+
+    if (page === "complaints") {
+      navigate("/complaints/adopter");
+    }
+
+    if (page === "settings") {
+      setActivePage("settings");
+    }
+  };
+
+  /* =========================
+     LOGOUT
+  ========================= */
+
+  const handleLogout = async () => {
+    try {
+      /*
+       * Tell Laravel to invalidate the
+       * current Sanctum token.
+       */
+      await apiFetch("/auth/logout", {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error(
+        "Logout error:",
+        err
+      );
+    } finally {
+      /*
+       * Clear local authentication data
+       * regardless of whether the API request
+       * succeeded.
+       */
+      clearSession();
+
+      navigate("/login");
+    }
+  };
+
+  /* =========================
+     USER DATA
+  ========================= */
+
+  /*
+   * IMPORTANT:
+   *
+   * Use currentUser instead of
+   * dashboardData.user.
+   *
+   * currentUser comes from /auth/me,
+   * which directly returns the authenticated
+   * user from Laravel.
+   */
+  const user = currentUser || {};
+
+  const userName =
+    user.name ||
+    user.username ||
+    "Adopter";
+
+  /*
+   * Get first letter for avatar.
+   */
+  const avatarLetter =
+    userName.charAt(0).toUpperCase();
+
+  /* =========================
+     STATISTICS
+  ========================= */
+
+  const statistics =
+    dashboardData?.statistics || {};
+
+  const totalApplications =
+    statistics.total_applications ??
+    applications.length;
+
+  const pendingApplications =
+    statistics.pending_applications ??
+    applications.filter(
+      (application) =>
+        application.status?.toLowerCase() ===
+        "pending"
+    ).length;
+
+  const approvedApplications =
+    statistics.approved_applications ??
+    applications.filter(
+      (application) =>
+        application.status?.toLowerCase() ===
+        "approved"
+    ).length;
+
+  const rejectedApplications =
+    statistics.rejected_applications ??
+    applications.filter(
+      (application) =>
+        application.status?.toLowerCase() ===
+        "rejected"
+    ).length;
+
+  /* =========================
+     SEARCH
+  ========================= */
+
+  const filteredApplications =
+    applications.filter((application) => {
+      const search =
+        searchQuery.toLowerCase();
+
+      const petName =
+        application.pet?.name ||
+        application.pet_name ||
+        "";
+
+      const petType =
+        application.pet?.type ||
+        application.pet_type ||
+        "";
+
+      const shelter =
+        application.pet?.shelter?.name ||
+        application.shelter?.name ||
+        application.shelter_name ||
+        "";
+
+      const status =
+        application.status || "";
+
+      return (
+        petName
+          .toLowerCase()
+          .includes(search) ||
+        petType
+          .toLowerCase()
+          .includes(search) ||
+        shelter
+          .toLowerCase()
+          .includes(search) ||
+        status
+          .toLowerCase()
+          .includes(search)
+      );
+    });
+
+  /* =========================
+     APPLICATION HELPERS
+  ========================= */
+
+  const getPetName = (application) => {
+    return (
+      application.pet?.name ||
+      application.pet_name ||
+      "Unknown Pet"
+    );
+  };
+
+  const getPetType = (application) => {
+    return (
+      application.pet?.type ||
+      application.pet_type ||
+      "Pet"
+    );
+  };
+
+  const getShelterName = (application) => {
+    return (
+      application.pet?.shelter?.name ||
+      application.shelter?.name ||
+      application.shelter_name ||
+      "Unknown Shelter"
+    );
+  };
+
+  const getApplicationDate = (
+    application
+  ) => {
+    const date =
+      application.created_at ||
+      application.date ||
+      application.application_date;
+
+    if (!date) {
+      return "Date unavailable";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }
+    );
+  };
+
+  const getStatusIcon = (status) => {
+    const normalizedStatus =
+      status?.toLowerCase();
+
+    if (
+      normalizedStatus ===
+      "approved"
+    ) {
+      return (
+        <CheckCircle size={17} />
+      );
+    }
+
+    if (
+      normalizedStatus ===
+      "rejected"
+    ) {
+      return (
+        <XCircle size={17} />
+      );
+    }
+
+    return <Clock size={17} />;
+  };
+
+  /* =========================
+     LOADING STATE
+  ========================= */
+
+  if (loading) {
+    return (
+      <div
+        className={`dashboard-container ${darkMode ? "dark" : ""
+          }`}
+      >
+        <div className="dashboard-loading">
+          <div className="loading-spinner"></div>
+
+          <h3>
+            Loading your dashboard...
+          </h3>
+
+          <p>
+            Please wait while we fetch your
+            adoption information.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* =========================
+     ERROR STATE
+  ========================= */
+
+  if (error) {
+    return (
+      <div
+        className={`dashboard-container ${darkMode ? "dark" : ""
+          }`}
+      >
+        <div className="dashboard-error">
+          <div className="error-icon">
+            <XCircle size={28} />
           </div>
 
-          {/* Navigation Links */}
-          <nav className="px-4 py-6 space-y-1.5">
-            <button 
-              onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-white/15 text-white' : 'text-[#EAD5CE] hover:bg-white/10 hover:text-white'}`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              Dashboard
-            </button>
-            <button 
-              onClick={() => setActiveTab('browse')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'browse' ? 'bg-white/15 text-white' : 'text-[#EAD5CE] hover:bg-white/10 hover:text-white'}`}
-            >
-              <Search className="w-5 h-5" />
-              Browse Pets
-            </button>
-            <button 
-              onClick={() => setActiveTab('applications')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'applications' ? 'bg-white/15 text-white' : 'text-[#EAD5CE] hover:bg-white/10 hover:text-white'}`}
-            >
-              <FileText className="w-5 h-5" />
-              My Applications
-            </button>
-            <button 
-              onClick={() => setActiveTab('messages')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'messages' ? 'bg-white/15 text-white' : 'text-[#EAD5CE] hover:bg-white/10 hover:text-white'}`}
-            >
-              <MessageSquare className="w-5 h-5" />
-              Messages
-            </button>
-            <button 
-              onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'profile' ? 'bg-white/15 text-white' : 'text-[#EAD5CE] hover:bg-white/10 hover:text-white'}`}
-            >
-              <User className="w-5 h-5" />
-              My Profile
-            </button>
-            <button 
-              onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-white/15 text-white' : 'text-[#EAD5CE] hover:bg-white/10 hover:text-white'}`}
-            >
-              <SettingsIcon className="w-5 h-5" />
-              Settings
-            </button>
-          </nav>
+          <h3>
+            Unable to load dashboard
+          </h3>
+
+          <p>{error}</p>
+
+          <button
+            className="retry-btn"
+            onClick={() =>
+              window.location.reload()
+            }
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`dashboard-container ${darkMode ? "dark" : ""
+        }`}
+    >
+      {/* =========================
+          MOBILE SIDEBAR OVERLAY
+      ========================= */}
+
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() =>
+            setSidebarOpen(false)
+          }
+        />
+      )}
+
+      {/* =========================
+          SIDEBAR
+      ========================= */}
+
+      <aside
+        className={`sidebar ${sidebarOpen ? "open" : ""
+          }`}
+      >
+        {/* Logo */}
+
+        <div
+          className="sidebar-logo"
+          onClick={() =>
+            navigate(
+              "/dashboard/adopter"
+            )
+          }
+        >
+          <div className="logo-icon">
+            <Dog size={23} />
+          </div>
+
+          <div className="logo-text">
+            PET
+            <br />
+            <span>CONNECT</span>
+          </div>
         </div>
 
-        {/* Logout Button */}
-        <div className="p-4 border-t border-[#8E4D30]">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#EAD5CE] hover:bg-white/10 hover:text-white transition-colors">
-            <LogOut className="w-5 h-5" />
-            Logout
+        {/* Navigation */}
+
+        <div className="sidebar-content">
+          <div className="sidebar-label">
+            Main Menu
+          </div>
+
+          <button
+            className={`nav-item ${activePage ===
+                "dashboard"
+                ? "active"
+                : ""
+              }`}
+            onClick={() =>
+              handleNavigation(
+                "dashboard"
+              )
+            }
+          >
+            <LayoutDashboard size={19} />
+            <span>Dashboard</span>
+          </button>
+
+          <button
+            className={`nav-item ${activePage ===
+                "applications"
+                ? "active"
+                : ""
+              }`}
+            onClick={() =>
+              handleNavigation(
+                "applications"
+              )
+            }
+          >
+            <FileText size={19} />
+            <span>
+              My Applications
+            </span>
+          </button>
+
+          <button
+            className={`nav-item ${activePage === "profile"
+                ? "active"
+                : ""
+              }`}
+            onClick={() =>
+              handleNavigation(
+                "profile"
+              )
+            }
+          >
+            <User size={19} />
+            <span>Profile</span>
+          </button>
+
+
+          {/* Complaints */}
+
+          <button
+            className={`nav-item ${activePage === "complaints"
+                ? "active"
+                : ""
+              }`}
+            onClick={() => {
+              setActivePage("complaints");
+              setSidebarOpen(false);
+              navigate("/complaints/adopter");
+            }}
+          >
+            <Flag size={19} />
+            <span>Complaints</span>
+          </button>
+          <button
+            className={`nav-item ${activePage === "settings"
+                ? "active"
+                : ""
+              }`}
+            onClick={() =>
+              handleNavigation(
+                "settings"
+              )
+            }
+          >
+            <Settings size={19} />
+            <span>Settings</span>
+          </button>
+        </div>
+
+        {/* Logout */}
+
+        <div className="sidebar-bottom">
+          <button
+            className="logout-btn"
+            onClick={handleLogout}
+          >
+            <LogOut size={19} />
+            <span>Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              Welcome back, Sarah! 🐾
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Find your new best friend and change a life.</p>
-          </div>
+      {/* =========================
+          MAIN WRAPPER
+      ========================= */}
 
-          <div className="flex items-center gap-5">
-            {/* Notifications */}
-            <div className="relative">
-              <button className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-full transition-colors relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
-                  3
-                </span>
-              </button>
+      <div className="main-wrapper">
+
+        {/* =========================
+            TOPBAR
+        ========================= */}
+
+        <header className="topbar">
+
+          <div className="topbar-left">
+
+            {/* Mobile Menu */}
+
+            <button
+              className="mobile-menu-btn"
+              onClick={() =>
+                setSidebarOpen(
+                  !sidebarOpen
+                )
+              }
+            >
+              {sidebarOpen ? (
+                <X size={20} />
+              ) : (
+                <Menu size={20} />
+              )}
+            </button>
+
+            {/* Page Title */}
+
+            <div className="page-title">
+
+              <h1>
+                {activePage ===
+                  "dashboard"
+                  ? "Dashboard"
+                  : activePage ===
+                    "applications"
+                    ? "My Applications"
+                    : activePage ===
+                      "profile"
+                      ? "Profile"
+                      : "Settings"}
+              </h1>
+
+              <p>
+                Manage your Pet Connect
+                account
+              </p>
+
             </div>
 
-            {/* User Profile Pill */}
-            <button 
-              onClick={() => setActiveTab('profile')}
-              className="flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full hover:bg-slate-100 transition-colors border border-slate-200 cursor-pointer"
-            >
-              <img 
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" 
-                alt="Sarah Ahmed" 
-                className="w-9 h-9 rounded-full object-cover border border-slate-200"
-              />
-              <div className="text-left">
-                <p className="text-xs font-bold text-slate-900 leading-tight">Sarah Ahmed</p>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Adopter</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-slate-400 ml-1" />
-            </button>
           </div>
+
+          <div className="topbar-right">
+
+            {/* Search */}
+
+            <div className="search-box">
+
+              <Search size={17} />
+
+              <input
+                type="text"
+                placeholder="Search applications..."
+                value={searchQuery}
+                onChange={(e) =>
+                  setSearchQuery(
+                    e.target.value
+                  )
+                }
+              />
+
+            </div>
+
+            {/* Theme */}
+
+            <button
+              className="theme-btn"
+              onClick={
+                toggleDarkMode
+              }
+              title="Toggle Theme"
+            >
+              {darkMode ? (
+                <Sun size={18} />
+              ) : (
+                <Moon size={18} />
+              )}
+            </button>
+
+            {/* Notifications */}
+
+            <button
+              className="icon-btn"
+              title="Notifications"
+            >
+              <Bell size={18} />
+
+              <span className="notification-dot" />
+            </button>
+
+            {/* Profile */}
+
+            <button
+              className="profile-btn"
+              onClick={() =>
+                navigate(
+                  "/profile/adopter"
+                )
+              }
+              title="View Profile"
+            >
+              <div className="profile-avatar">
+                {avatarLetter}
+              </div>
+
+              <div className="profile-info">
+
+                <strong>
+                  {userName}
+                </strong>
+
+                <span>
+                  Adopter
+                </span>
+
+              </div>
+
+            </button>
+
+          </div>
+
         </header>
 
-        {/* Scrollable Main Content */}
-        <main className="flex-1 overflow-y-auto p-8 space-y-8">
-          
-          {/* Top Stats Cards Row */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            
-            {/* 1. Applications */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-              <div className="bg-purple-50 p-3 rounded-xl text-purple-600 shrink-0">
-                <PawPrint className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">12</h3>
-                <p className="text-xs text-slate-500 font-medium">Applications</p>
-                <button className="text-[11px] text-[#7A3E23] font-semibold hover:underline mt-0.5">View all</button>
-              </div>
-            </div>
+        {/* =========================
+            PAGE CONTENT
+        ========================= */}
 
-            {/* 2. Pending Review */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-              <div className="bg-amber-50 p-3 rounded-xl text-amber-600 shrink-0">
-                <Clock className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">5</h3>
-                <p className="text-xs text-slate-500 font-medium">Pending Review</p>
-                <button className="text-[11px] text-[#7A3E23] font-semibold hover:underline mt-0.5">View details</button>
-              </div>
-            </div>
+        <main className="content">
 
-            {/* 3. Approved */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-              <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600 shrink-0">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">3</h3>
-                <p className="text-xs text-slate-500 font-medium">Approved</p>
-                <button className="text-[11px] text-[#7A3E23] font-semibold hover:underline mt-0.5">View details</button>
-              </div>
-            </div>
+          {/* =========================
+              DASHBOARD
+          ========================= */}
 
-            {/* 4. Rejected */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-              <div className="bg-red-50 p-3 rounded-xl text-red-500 shrink-0">
-                <XCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">2</h3>
-                <p className="text-xs text-slate-500 font-medium">Rejected</p>
-                <button className="text-[11px] text-[#7A3E23] font-semibold hover:underline mt-0.5">View details</button>
-              </div>
-            </div>
+          {activePage ===
+            "dashboard" && (
+              <>
 
-            {/* 5. Favorites */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 col-span-2 md:col-span-1">
-              <div className="bg-blue-50 p-3 rounded-xl text-blue-600 shrink-0">
-                <Heart className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">8</h3>
-                <p className="text-xs text-slate-500 font-medium">Favorites</p>
-                <button className="text-[11px] text-[#7A3E23] font-semibold hover:underline mt-0.5">View favorites</button>
-              </div>
-            </div>
+                {/* Welcome */}
 
-          </div>
+                <section className="welcome-section">
 
-          {/* Section 2: Recent Applications & Recommended Pets */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* Recent Applications */}
-            <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                  <h3 className="font-bold text-slate-900 text-base">Recent Applications</h3>
-                  <button className="px-3 py-1 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 transition-colors">
-                    View All
-                  </button>
+                  <h2>
+                    Welcome back,{" "}
+                    {userName}! 🐾
+                  </h2>
+
+                  <p>
+                    Keep track of your
+                    adoption journey and find
+                    your perfect companion.
+                  </p>
+
+                </section>
+
+                {/* Statistics */}
+
+                <section className="stats-grid">
+
+                  <div className="stat-card">
+
+                    <div className="stat-info">
+
+                      <p>
+                        Total Applications
+                      </p>
+
+                      <h3>
+                        {
+                          totalApplications
+                        }
+                      </h3>
+
+                    </div>
+
+                    <div className="stat-icon orange-icon">
+                      <FileText size={21} />
+                    </div>
+
+                  </div>
+
+                  <div className="stat-card">
+
+                    <div className="stat-info">
+
+                      <p>Pending</p>
+
+                      <h3>
+                        {
+                          pendingApplications
+                        }
+                      </h3>
+
+                    </div>
+
+                    <div className="stat-icon blue-icon">
+                      <Clock size={21} />
+                    </div>
+
+                  </div>
+
+                  <div className="stat-card">
+
+                    <div className="stat-info">
+
+                      <p>Approved</p>
+
+                      <h3>
+                        {
+                          approvedApplications
+                        }
+                      </h3>
+
+                    </div>
+
+                    <div className="stat-icon green-icon">
+                      <CheckCircle
+                        size={21}
+                      />
+                    </div>
+
+                  </div>
+
+                  <div className="stat-card">
+
+                    <div className="stat-info">
+
+                      <p>Rejected</p>
+
+                      <h3>
+                        {
+                          rejectedApplications
+                        }
+                      </h3>
+
+                    </div>
+
+                    <div className="stat-icon red-icon">
+                      <XCircle size={21} />
+                    </div>
+
+                  </div>
+
+                </section>
+
+                {/* Dashboard Grid */}
+
+                <section className="dashboard-grid">
+
+                  {/* Applications */}
+
+                  <div className="section-card">
+
+                    <div className="section-header">
+
+                      <h3>
+                        Recent Applications
+                      </h3>
+
+                      <button
+                        className="view-all-btn"
+                        onClick={() =>
+                          handleNavigation(
+                            "applications"
+                          )
+                        }
+                      >
+                        View All
+                      </button>
+
+                    </div>
+
+                    <div className="application-list">
+
+                      {filteredApplications.length >
+                        0 ? (
+                        filteredApplications.map(
+                          (application) => (
+                            <div
+                              className="application-row"
+                              key={
+                                application.id
+                              }
+                            >
+
+                              <div className="pet-info">
+
+                                <div className="pet-avatar">
+                                  <PawPrint
+                                    size={21}
+                                  />
+                                </div>
+
+                                <div className="pet-details">
+
+                                  <h4>
+                                    {getPetName(
+                                      application
+                                    )}
+                                  </h4>
+
+                                  <p>
+                                    {getPetType(
+                                      application
+                                    )}
+                                    {" • "}
+                                    {getShelterName(
+                                      application
+                                    )}
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+                              <div className="application-meta">
+
+                                <span
+                                  className={`status ${(
+                                    application.status ||
+                                    "Pending"
+                                  ).toLowerCase()}`}
+                                >
+
+                                  {getStatusIcon(
+                                    application.status
+                                  )}
+
+                                  {application.status ||
+                                    "Pending"}
+
+                                </span>
+
+                                <span className="application-date">
+
+                                  {getApplicationDate(
+                                    application
+                                  )}
+
+                                </span>
+
+                              </div>
+
+                            </div>
+                          )
+                        )
+                      ) : (
+
+                        <div className="empty-state">
+
+                          <div className="empty-state-icon">
+                            <Search size={23} />
+                          </div>
+
+                          <h4>
+                            No applications found
+                          </h4>
+
+                          <p>
+                            {searchQuery
+                              ? "Try searching with a different keyword."
+                              : "You haven't submitted any adoption applications yet."}
+                          </p>
+
+                        </div>
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  {/* Quick Actions */}
+
+                  <div className="section-card">
+
+                    <div className="section-header">
+
+                      <h3>
+                        Quick Actions
+                      </h3>
+
+                    </div>
+
+                    <div className="quick-actions">
+
+                      {/* Applications */}
+
+                      <button
+                        className="quick-action"
+                        onClick={() =>
+                          handleNavigation(
+                            "applications"
+                          )
+                        }
+                      >
+
+                        <div className="quick-action-icon">
+                          <FileText size={18} />
+                        </div>
+
+                        <div className="quick-action-text">
+
+                          <strong>
+                            My Applications
+                          </strong>
+
+                          <span>
+                            Track your
+                            adoption
+                            applications
+                          </span>
+
+                        </div>
+
+                        <ChevronRight
+                          size={16}
+                        />
+
+                      </button>
+
+                      {/* Profile */}
+
+                      <button
+                        className="quick-action"
+                        onClick={() =>
+                          navigate(
+                            "/profile/adopter"
+                          )
+                        }
+                      >
+
+                        <div className="quick-action-icon">
+                          <User size={18} />
+                        </div>
+
+                        <div className="quick-action-text">
+
+                          <strong>
+                            My Profile
+                          </strong>
+
+                          <span>
+                            View and edit
+                            your
+                            information
+                          </span>
+
+                        </div>
+
+                        <ChevronRight
+                          size={16}
+                        />
+
+                      </button>
+
+                      {/* Settings */}
+
+                      <button
+                        className="quick-action"
+                        onClick={() =>
+                          handleNavigation(
+                            "settings"
+                          )
+                        }
+                      >
+
+                        <div className="quick-action-icon">
+                          <Settings
+                            size={18}
+                          />
+                        </div>
+
+                        <div className="quick-action-text">
+
+                          <strong>
+                            Settings
+                          </strong>
+
+                          <span>
+                            Manage your
+                            account
+                          </span>
+
+                        </div>
+
+                        <ChevronRight
+                          size={16}
+                        />
+
+                      </button>
+
+                      {/* Favorites */}
+
+                      <button className="quick-action">
+
+                        <div className="quick-action-icon">
+                          <Heart size={18} />
+                        </div>
+
+                        <div className="quick-action-text">
+
+                          <strong>
+                            Favorite Pets
+                          </strong>
+
+                          <span>
+                            View pets you
+                            saved
+                          </span>
+
+                        </div>
+
+                        <ChevronRight
+                          size={16}
+                        />
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </section>
+
+              </>
+            )}
+
+          {/* =========================
+              MY APPLICATIONS
+          ========================= */}
+
+          {activePage ===
+            "applications" && (
+              <section className="section-card">
+
+                <div className="section-header">
+
+                  <h3>
+                    My Applications
+                  </h3>
+
+                  <span className="application-count">
+                    {totalApplications}{" "}
+                    applications
+                  </span>
+
                 </div>
 
-                <div className="space-y-3">
-                  {/* Item 1 */}
-                  <div className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?w=100&auto=format&fit=crop&q=80" alt="Bella" className="w-12 h-12 rounded-xl object-cover" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Bella</p>
-                        <p className="text-xs text-slate-500">Dog • Golden Retriever</p>
+                <div className="application-list">
+
+                  {filteredApplications.length >
+                    0 ? (
+                    filteredApplications.map(
+                      (application) => (
+                        <div
+                          className="application-row"
+                          key={
+                            application.id
+                          }
+                        >
+
+                          <div className="pet-info">
+
+                            <div className="pet-avatar">
+                              <PawPrint
+                                size={21}
+                              />
+                            </div>
+
+                            <div className="pet-details">
+
+                              <h4>
+                                {getPetName(
+                                  application
+                                )}
+                              </h4>
+
+                              <p>
+                                {getPetType(
+                                  application
+                                )}
+                                {" • "}
+                                {getShelterName(
+                                  application
+                                )}
+                              </p>
+
+                            </div>
+
+                          </div>
+
+                          <div className="application-meta">
+
+                            <span
+                              className={`status ${(
+                                application.status ||
+                                "Pending"
+                              ).toLowerCase()}`}
+                            >
+
+                              {getStatusIcon(
+                                application.status
+                              )}
+
+                              {application.status ||
+                                "Pending"}
+
+                            </span>
+
+                            <span className="application-date">
+
+                              {getApplicationDate(
+                                application
+                              )}
+
+                            </span>
+
+                          </div>
+
+                        </div>
+                      )
+                    )
+                  ) : (
+
+                    <div className="empty-state">
+
+                      <div className="empty-state-icon">
+                        <FileText size={23} />
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-semibold">
-                        Pending Review
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">May 15, 2025</span>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
 
-                  {/* Item 2 */}
-                  <div className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=100&auto=format&fit=crop&q=80" alt="Luna" className="w-12 h-12 rounded-xl object-cover" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Luna</p>
-                        <p className="text-xs text-slate-500">Cat • Domestic Shorthair</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
-                        Approved
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">May 10, 2025</span>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
+                      <h4>
+                        No applications
+                      </h4>
 
-                  {/* Item 3 */}
-                  <div className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=100&auto=format&fit=crop&q=80" alt="Max" className="w-12 h-12 rounded-xl object-cover" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Max</p>
-                        <p className="text-xs text-slate-500">Dog • German Shepherd</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-semibold">
-                        Pending Review
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">May 8, 2025</span>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
+                      <p>
+                        You haven't
+                        submitted any
+                        adoption
+                        applications yet.
+                      </p>
 
-                  {/* Item 4 */}
-                  <div className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=100&auto=format&fit=crop&q=80" alt="Charlie" className="w-12 h-12 rounded-xl object-cover" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Charlie</p>
-                        <p className="text-xs text-slate-500">Dog • Beagle</p>
-                      </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 text-[11px] font-semibold">
-                        Rejected
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">May 5, 2025</span>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
 
-                  {/* Item 5 */}
-                  <div className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1574158622682-e40e69881006?w=100&auto=format&fit=crop&q=80" alt="Milo" className="w-12 h-12 rounded-xl object-cover" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Milo</p>
-                        <p className="text-xs text-slate-500">Cat • Maine Coon</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
-                        Approved
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">May 2, 2025</span>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  )}
 
-              <div className="pt-4">
-                <button className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition-colors shadow-sm">
-                  View All Applications
-                </button>
-              </div>
-            </div>
-
-            {/* Recommended Pets for You */}
-            <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                  <h3 className="font-bold text-slate-900 text-base">Recommended Pets for You</h3>
-                  <button className="px-3 py-1 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 transition-colors">
-                    View All
-                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Pet 1 */}
-                  <div className="border border-slate-200 rounded-2xl p-3 flex flex-col justify-between">
+              </section>
+            )}
+
+          {/* =========================
+              SETTINGS
+          ========================= */}
+
+          {activePage ===
+            "settings" && (
+              <section className="section-card">
+
+                <div className="section-header">
+
+                  <h3>
+                    Settings
+                  </h3>
+
+                </div>
+
+                <div className="settings-content">
+
+                  <div className="settings-option">
+
                     <div>
-                      <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&auto=format&fit=crop&q=80" alt="Buddy" className="w-full h-32 rounded-xl object-cover mb-3" />
-                      <h4 className="font-bold text-slate-900 text-sm">Buddy</h4>
-                      <p className="text-[11px] text-slate-500">Dog • Labrador Retriever</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">2 years old • Male</p>
+
+                      <strong>
+                        Dark Mode
+                      </strong>
+
+                      <span>
+                        Change the
+                        appearance of Pet
+                        Connect
+                      </span>
+
                     </div>
-                    <button className="w-full mt-3 py-1.5 border border-[#7A3E23] text-[#7A3E23] hover:bg-[#7A3E23] hover:text-white rounded-lg text-xs font-semibold transition-colors">
-                      View Profile
+
+                    <button
+                      className="theme-btn"
+                      onClick={
+                        toggleDarkMode
+                      }
+                    >
+                      {darkMode ? (
+                        <Sun size={18} />
+                      ) : (
+                        <Moon size={18} />
+                      )}
                     </button>
+
                   </div>
 
-                  {/* Pet 2 */}
-                  <div className="border border-slate-200 rounded-2xl p-3 flex flex-col justify-between">
-                    <div>
-                      <img src="https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=300&auto=format&fit=crop&q=80" alt="Whiskers" className="w-full h-32 rounded-xl object-cover mb-3" />
-                      <h4 className="font-bold text-slate-900 text-sm">Whiskers</h4>
-                      <p className="text-[11px] text-slate-500">Cat • Domestic Shorthair</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">1 year old • Female</p>
-                    </div>
-                    <button className="w-full mt-3 py-1.5 border border-[#7A3E23] text-[#7A3E23] hover:bg-[#7A3E23] hover:text-white rounded-lg text-xs font-semibold transition-colors">
-                      View Profile
-                    </button>
-                  </div>
-
-                  {/* Pet 3 */}
-                  <div className="border border-slate-200 rounded-2xl p-3 flex flex-col justify-between">
-                    <div>
-                      <img src="https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=300&auto=format&fit=crop&q=80" alt="Rocky" className="w-full h-32 rounded-xl object-cover mb-3" />
-                      <h4 className="font-bold text-slate-900 text-sm">Rocky</h4>
-                      <p className="text-[11px] text-slate-500">Dog • Mixed Breed</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">3 years old • Male</p>
-                    </div>
-                    <button className="w-full mt-3 py-1.5 border border-[#7A3E23] text-[#7A3E23] hover:bg-[#7A3E23] hover:text-white rounded-lg text-xs font-semibold transition-colors">
-                      View Profile
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Carousel Indicators */}
-              <div className="flex justify-center items-center gap-1.5 pt-6">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#7A3E23]"></span>
-                <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Section 3: Upcoming Appointments & Quick Actions */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* Upcoming Appointments */}
-            <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                  <h3 className="font-bold text-slate-900 text-base">Upcoming Appointments</h3>
-                  <button className="px-3 py-1 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 transition-colors">
-                    View All
-                  </button>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-amber-50 text-amber-700 rounded-xl">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">May 20, 2025 • 11:00 AM</p>
-                        <p className="text-xs font-medium text-slate-700 mt-0.5">Meet & Greet with Bella</p>
-                        <p className="text-[11px] text-slate-400">Paw Rescue Shelter</p>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-semibold">
-                      Upcoming
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 rounded-xl transition-colors border border-slate-100">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-amber-50 text-amber-700 rounded-xl">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">May 25, 2025 • 02:00 PM</p>
-                        <p className="text-xs font-medium text-slate-700 mt-0.5">Home Visit for Luna</p>
-                        <p className="text-[11px] text-slate-400">Your Home</p>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-semibold">
-                      Upcoming
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-slate-900 text-base pb-4 border-b border-slate-100 mb-4">Quick Actions</h3>
-
-              <div className="grid grid-cols-2 gap-4">
-                <button className="p-4 bg-purple-50/60 hover:bg-purple-50 border border-purple-100 rounded-2xl text-center flex flex-col items-center justify-center transition-colors">
-                  <div className="p-2.5 bg-purple-100 rounded-xl text-purple-600 mb-2">
-                    <Search className="w-5 h-5" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-900">Browse Pets</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Find your perfect companion</p>
-                </button>
-
-                <button className="p-4 bg-amber-50/60 hover:bg-amber-50 border border-amber-100 rounded-2xl text-center flex flex-col items-center justify-center transition-colors">
-                  <div className="p-2.5 bg-amber-100 rounded-xl text-amber-600 mb-2">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-900">New Application</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Apply to adopt a pet</p>
-                </button>
-
-                <button className="p-4 bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-100 rounded-2xl text-center flex flex-col items-center justify-center transition-colors">
-                  <div className="p-2.5 bg-emerald-100 rounded-xl text-emerald-600 mb-2">
-                    <MessageSquare className="w-5 h-5" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-900">Message Shelter</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Contact shelter staff</p>
-                </button>
-
-                <button className="p-4 bg-blue-50/60 hover:bg-blue-50 border border-blue-100 rounded-2xl text-center flex flex-col items-center justify-center transition-colors">
-                  <div className="p-2.5 bg-blue-100 rounded-xl text-blue-600 mb-2">
-                    <Heart className="w-5 h-5" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-900">View Favorites</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">See your saved pets</p>
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Section 4: Adoption Process Horizontal Steps */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-900 text-base mb-6">Adoption Process</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
-              {/* Step 1 */}
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-700 font-bold text-sm flex items-center justify-center shrink-0 border border-purple-100">
-                  1
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Browse Pets</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Find a pet you love</p>
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-700 font-bold text-sm flex items-center justify-center shrink-0 border border-amber-100">
-                  2
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Submit Application</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Fill out and submit application</p>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm flex items-center justify-center shrink-0 border border-emerald-100">
-                  3
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Review Process</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Shelter reviews your application</p>
-                </div>
-              </div>
-
-              {/* Step 4 */}
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 font-bold text-sm flex items-center justify-center shrink-0 border border-blue-100">
-                  4
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Meet & Greet</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Meet the pet and get to know them</p>
-                </div>
-              </div>
-
-              {/* Step 5 */}
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-red-50 text-red-700 font-bold text-sm flex items-center justify-center shrink-0 border border-red-100">
-                  5
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Adoption</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Take your new friend home!</p>
-                </div>
-              </div>
-
-            </div>
-          </div>
+              </section>
+            )}
 
         </main>
+
       </div>
     </div>
   );
