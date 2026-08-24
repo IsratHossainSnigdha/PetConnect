@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Complaint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ComplaintController extends Controller
 {
@@ -13,11 +13,31 @@ class ComplaintController extends Controller
      */
     public function index(Request $request)
     {
-        $complaints = Complaint::where(
-            'user_id',
-            $request->user()->id
-        )
-            ->latest()
+        $complaints = DB::table('complaints')
+            ->join(
+                'users',
+                'complaints.user_id',
+                '=',
+                'users.id'
+            )
+            ->where(
+                'complaints.user_id',
+                $request->user()->id
+            )
+            ->select(
+                'complaints.id',
+                'complaints.subject',
+                'complaints.category',
+                'complaints.description',
+                'complaints.status',
+                'complaints.created_at',
+                'users.name as user_name',
+                'users.email as user_email'
+            )
+            ->orderBy(
+                'complaints.created_at',
+                'desc'
+            )
             ->get();
 
         return response()->json([
@@ -49,13 +69,35 @@ class ComplaintController extends Controller
             ],
         ]);
 
-        $complaint = Complaint::create([
+        $complaintId = DB::table('complaints')->insertGetId([
             'user_id' => $request->user()->id,
             'subject' => $validated['subject'],
             'category' => $validated['category'],
             'description' => $validated['description'],
             'status' => 'Pending',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
+
+        $complaint = DB::table('complaints')
+            ->join(
+                'users',
+                'complaints.user_id',
+                '=',
+                'users.id'
+            )
+            ->where('complaints.id', $complaintId)
+            ->select(
+                'complaints.id',
+                'complaints.subject',
+                'complaints.category',
+                'complaints.description',
+                'complaints.status',
+                'complaints.created_at',
+                'users.name as user_name',
+                'users.email as user_email'
+            )
+            ->first();
 
         return response()->json([
             'message' => 'Complaint submitted successfully.',
@@ -66,12 +108,36 @@ class ComplaintController extends Controller
     /**
      * Show one complaint belonging to the logged-in adopter.
      */
-    public function show(Request $request, Complaint $complaint)
+    public function show(Request $request, $id)
     {
-        if ($complaint->user_id !== $request->user()->id) {
+        $complaint = DB::table('complaints')
+            ->join(
+                'users',
+                'complaints.user_id',
+                '=',
+                'users.id'
+            )
+            ->where('complaints.id', $id)
+            ->where(
+                'complaints.user_id',
+                $request->user()->id
+            )
+            ->select(
+                'complaints.id',
+                'complaints.subject',
+                'complaints.category',
+                'complaints.description',
+                'complaints.status',
+                'complaints.created_at',
+                'users.name as user_name',
+                'users.email as user_email'
+            )
+            ->first();
+
+        if (!$complaint) {
             return response()->json([
-                'message' => 'Unauthorized.',
-            ], 403);
+                'message' => 'Complaint not found.',
+            ], 404);
         }
 
         return response()->json([
