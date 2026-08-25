@@ -14,7 +14,6 @@ import {
   Moon,
   Menu,
   X,
-  Heart,
   Clock,
   CheckCircle,
   XCircle,
@@ -50,11 +49,6 @@ export default function AdopterDashboard({
   const [dashboardData, setDashboardData] = useState(null);
   const [applications, setApplications] = useState([]);
 
-  /*
-   * Get cached user immediately so the
-   * profile name can appear without waiting
-   * for the API request.
-   */
   const [currentUser, setCurrentUser] = useState(
     getCachedUser()
   );
@@ -63,7 +57,7 @@ export default function AdopterDashboard({
   const [error, setError] = useState("");
 
   /* =========================
-     FETCH ADOPTER DASHBOARD
+     FETCH DASHBOARD
   ========================= */
 
   useEffect(() => {
@@ -74,49 +68,24 @@ export default function AdopterDashboard({
 
         const token = getToken();
 
-        /*
-         * No authentication token means
-         * the user is not logged in.
-         */
         if (!token) {
           navigate("/login");
           return;
         }
 
-        /*
-         * --------------------------------------------------
-         * GET CURRENT AUTHENTICATED USER
-         * --------------------------------------------------
-         *
-         * This gets the latest user information directly
-         * from Laravel's users table.
-         *
-         * This is especially important after editing the
-         * profile because the name may have changed.
-         */
-        const userResponse = await apiFetch(
-          "/auth/me"
-        );
+        /* Get authenticated user */
+        const userResponse = await apiFetch("/auth/me");
 
-        const authenticatedUser =
-          userResponse.user;
+        const authenticatedUser = userResponse.user;
 
         setCurrentUser(authenticatedUser);
 
-        /*
-         * Keep the cached user synchronized
-         * with the database.
-         */
         setSession(
           token,
           authenticatedUser
         );
 
-        /*
-         * --------------------------------------------------
-         * GET ADOPTER DASHBOARD DATA
-         * --------------------------------------------------
-         */
+        /* Get dashboard data */
         const data = await apiFetch(
           "/adopter/dashboard"
         );
@@ -140,9 +109,6 @@ export default function AdopterDashboard({
           err
         );
 
-        /*
-         * Token is invalid or expired.
-         */
         if (err.status === 401) {
           clearSession();
           navigate("/login");
@@ -151,8 +117,9 @@ export default function AdopterDashboard({
 
         setError(
           err.message ||
-          "Unable to load dashboard."
+            "Unable to load dashboard."
         );
+
       } finally {
         setLoading(false);
       }
@@ -173,12 +140,12 @@ export default function AdopterDashboard({
       navigate("/dashboard/adopter");
     }
 
-    if (page === "profile") {
-      navigate("/profile/adopter");
-    }
-
     if (page === "applications") {
       navigate("/applications/adopter");
+    }
+
+    if (page === "profile") {
+      navigate("/profile/adopter");
     }
 
     if (page === "complaints") {
@@ -196,10 +163,6 @@ export default function AdopterDashboard({
 
   const handleLogout = async () => {
     try {
-      /*
-       * Tell Laravel to invalidate the
-       * current Sanctum token.
-       */
       await apiFetch("/auth/logout", {
         method: "POST",
       });
@@ -209,31 +172,15 @@ export default function AdopterDashboard({
         err
       );
     } finally {
-      /*
-       * Clear local authentication data
-       * regardless of whether the API request
-       * succeeded.
-       */
       clearSession();
-
       navigate("/login");
     }
   };
 
   /* =========================
-     USER DATA
+     USER
   ========================= */
 
-  /*
-   * IMPORTANT:
-   *
-   * Use currentUser instead of
-   * dashboardData.user.
-   *
-   * currentUser comes from /auth/me,
-   * which directly returns the authenticated
-   * user from Laravel.
-   */
   const user = currentUser || {};
 
   const userName =
@@ -241,9 +188,6 @@ export default function AdopterDashboard({
     user.username ||
     "Adopter";
 
-  /*
-   * Get first letter for avatar.
-   */
   const avatarLetter =
     userName.charAt(0).toUpperCase();
 
@@ -294,17 +238,21 @@ export default function AdopterDashboard({
       const petName =
         application.pet?.name ||
         application.pet_name ||
+        application.petName ||
         "";
 
       const petType =
         application.pet?.type ||
         application.pet_type ||
+        application.type ||
+        application.breed ||
         "";
 
       const shelter =
         application.pet?.shelter?.name ||
         application.shelter?.name ||
         application.shelter_name ||
+        application.shelterName ||
         "";
 
       const status =
@@ -334,6 +282,7 @@ export default function AdopterDashboard({
     return (
       application.pet?.name ||
       application.pet_name ||
+      application.petName ||
       "Unknown Pet"
     );
   };
@@ -342,6 +291,8 @@ export default function AdopterDashboard({
     return (
       application.pet?.type ||
       application.pet_type ||
+      application.type ||
+      application.breed ||
       "Pet"
     );
   };
@@ -351,6 +302,7 @@ export default function AdopterDashboard({
       application.pet?.shelter?.name ||
       application.shelter?.name ||
       application.shelter_name ||
+      application.shelterName ||
       "Unknown Shelter"
     );
   };
@@ -413,14 +365,15 @@ export default function AdopterDashboard({
   };
 
   /* =========================
-     LOADING STATE
+     LOADING
   ========================= */
 
   if (loading) {
     return (
       <div
-        className={`dashboard-container ${darkMode ? "dark" : ""
-          }`}
+        className={`dashboard-container ${
+          darkMode ? "dark" : ""
+        }`}
       >
         <div className="dashboard-loading">
           <div className="loading-spinner"></div>
@@ -439,14 +392,15 @@ export default function AdopterDashboard({
   }
 
   /* =========================
-     ERROR STATE
+     ERROR
   ========================= */
 
   if (error) {
     return (
       <div
-        className={`dashboard-container ${darkMode ? "dark" : ""
-          }`}
+        className={`dashboard-container ${
+          darkMode ? "dark" : ""
+        }`}
       >
         <div className="dashboard-error">
           <div className="error-icon">
@@ -474,12 +428,12 @@ export default function AdopterDashboard({
 
   return (
     <div
-      className={`dashboard-container ${darkMode ? "dark" : ""
-        }`}
+      className={`dashboard-container ${
+        darkMode ? "dark" : ""
+      }`}
     >
-      {/* =========================
-          MOBILE SIDEBAR OVERLAY
-      ========================= */}
+
+      {/* MOBILE SIDEBAR OVERLAY */}
 
       {sidebarOpen && (
         <div
@@ -490,15 +444,15 @@ export default function AdopterDashboard({
         />
       )}
 
-      {/* =========================
-          SIDEBAR
-      ========================= */}
+      {/* SIDEBAR */}
 
       <aside
-        className={`sidebar ${sidebarOpen ? "open" : ""
-          }`}
+        className={`sidebar ${
+          sidebarOpen ? "open" : ""
+        }`}
       >
-        {/* Logo */}
+
+        {/* LOGO */}
 
         <div
           className="sidebar-logo"
@@ -519,19 +473,20 @@ export default function AdopterDashboard({
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* NAVIGATION */}
 
         <div className="sidebar-content">
+
           <div className="sidebar-label">
             Main Menu
           </div>
 
           <button
-            className={`nav-item ${activePage ===
-                "dashboard"
+            className={`nav-item ${
+              activePage === "dashboard"
                 ? "active"
                 : ""
-              }`}
+            }`}
             onClick={() =>
               handleNavigation(
                 "dashboard"
@@ -543,11 +498,11 @@ export default function AdopterDashboard({
           </button>
 
           <button
-            className={`nav-item ${activePage ===
-                "applications"
+            className={`nav-item ${
+              activePage === "applications"
                 ? "active"
                 : ""
-              }`}
+            }`}
             onClick={() =>
               handleNavigation(
                 "applications"
@@ -555,16 +510,18 @@ export default function AdopterDashboard({
             }
           >
             <FileText size={19} />
+
             <span>
               My Applications
             </span>
           </button>
 
           <button
-            className={`nav-item ${activePage === "profile"
+            className={`nav-item ${
+              activePage === "profile"
                 ? "active"
                 : ""
-              }`}
+            }`}
             onClick={() =>
               handleNavigation(
                 "profile"
@@ -575,28 +532,28 @@ export default function AdopterDashboard({
             <span>Profile</span>
           </button>
 
-
-          {/* Complaints */}
-
           <button
-            className={`nav-item ${activePage === "complaints"
+            className={`nav-item ${
+              activePage === "complaints"
                 ? "active"
                 : ""
-              }`}
-            onClick={() => {
-              setActivePage("complaints");
-              setSidebarOpen(false);
-              navigate("/complaints/adopter");
-            }}
+            }`}
+            onClick={() =>
+              handleNavigation(
+                "complaints"
+              )
+            }
           >
             <Flag size={19} />
             <span>Complaints</span>
           </button>
+
           <button
-            className={`nav-item ${activePage === "settings"
+            className={`nav-item ${
+              activePage === "settings"
                 ? "active"
                 : ""
-              }`}
+            }`}
             onClick={() =>
               handleNavigation(
                 "settings"
@@ -606,11 +563,13 @@ export default function AdopterDashboard({
             <Settings size={19} />
             <span>Settings</span>
           </button>
+
         </div>
 
-        {/* Logout */}
+        {/* LOGOUT */}
 
         <div className="sidebar-bottom">
+
           <button
             className="logout-btn"
             onClick={handleLogout}
@@ -618,24 +577,20 @@ export default function AdopterDashboard({
             <LogOut size={19} />
             <span>Logout</span>
           </button>
+
         </div>
+
       </aside>
 
-      {/* =========================
-          MAIN WRAPPER
-      ========================= */}
+      {/* MAIN */}
 
       <div className="main-wrapper">
 
-        {/* =========================
-            TOPBAR
-        ========================= */}
+        {/* TOPBAR */}
 
         <header className="topbar">
 
           <div className="topbar-left">
-
-            {/* Mobile Menu */}
 
             <button
               className="mobile-menu-btn"
@@ -652,8 +607,6 @@ export default function AdopterDashboard({
               )}
             </button>
 
-            {/* Page Title */}
-
             <div className="page-title">
 
               <h1>
@@ -662,11 +615,14 @@ export default function AdopterDashboard({
                   ? "Dashboard"
                   : activePage ===
                     "applications"
-                    ? "My Applications"
-                    : activePage ===
-                      "profile"
-                      ? "Profile"
-                      : "Settings"}
+                  ? "My Applications"
+                  : activePage ===
+                    "profile"
+                  ? "Profile"
+                  : activePage ===
+                    "complaints"
+                  ? "Complaints"
+                  : "Settings"}
               </h1>
 
               <p>
@@ -679,8 +635,6 @@ export default function AdopterDashboard({
           </div>
 
           <div className="topbar-right">
-
-            {/* Search */}
 
             <div className="search-box">
 
@@ -699,8 +653,6 @@ export default function AdopterDashboard({
 
             </div>
 
-            {/* Theme */}
-
             <button
               className="theme-btn"
               onClick={
@@ -715,8 +667,6 @@ export default function AdopterDashboard({
               )}
             </button>
 
-            {/* Notifications */}
-
             <button
               className="icon-btn"
               title="Notifications"
@@ -725,8 +675,6 @@ export default function AdopterDashboard({
 
               <span className="notification-dot" />
             </button>
-
-            {/* Profile */}
 
             <button
               className="profile-btn"
@@ -742,7 +690,6 @@ export default function AdopterDashboard({
               </div>
 
               <div className="profile-info">
-
                 <strong>
                   {userName}
                 </strong>
@@ -750,18 +697,14 @@ export default function AdopterDashboard({
                 <span>
                   Adopter
                 </span>
-
               </div>
-
             </button>
 
           </div>
 
         </header>
 
-        {/* =========================
-            PAGE CONTENT
-        ========================= */}
+        {/* CONTENT */}
 
         <main className="content">
 
@@ -771,566 +714,313 @@ export default function AdopterDashboard({
 
           {activePage ===
             "dashboard" && (
-              <>
+            <>
 
-                {/* Welcome */}
+              <section className="welcome-section">
 
-                <section className="welcome-section">
+                <h2>
+                  Welcome back,{" "}
+                  {userName}! 🐾
+                </h2>
 
-                  <h2>
-                    Welcome back,{" "}
-                    {userName}! 🐾
-                  </h2>
+                <p>
+                  Keep track of your
+                  adoption journey and find
+                  your perfect companion.
+                </p>
 
-                  <p>
-                    Keep track of your
-                    adoption journey and find
-                    your perfect companion.
-                  </p>
+              </section>
 
-                </section>
+              {/* STATISTICS */}
 
-                {/* Statistics */}
+              <section className="stats-grid">
 
-                <section className="stats-grid">
+                <div className="stat-card">
 
-                  <div className="stat-card">
+                  <div className="stat-info">
+                    <p>
+                      Total Applications
+                    </p>
 
-                    <div className="stat-info">
-
-                      <p>
-                        Total Applications
-                      </p>
-
-                      <h3>
-                        {
-                          totalApplications
-                        }
-                      </h3>
-
-                    </div>
-
-                    <div className="stat-icon orange-icon">
-                      <FileText size={21} />
-                    </div>
-
+                    <h3>
+                      {totalApplications}
+                    </h3>
                   </div>
 
-                  <div className="stat-card">
-
-                    <div className="stat-info">
-
-                      <p>Pending</p>
-
-                      <h3>
-                        {
-                          pendingApplications
-                        }
-                      </h3>
-
-                    </div>
-
-                    <div className="stat-icon blue-icon">
-                      <Clock size={21} />
-                    </div>
-
+                  <div className="stat-icon orange-icon">
+                    <FileText size={21} />
                   </div>
-
-                  <div className="stat-card">
-
-                    <div className="stat-info">
-
-                      <p>Approved</p>
-
-                      <h3>
-                        {
-                          approvedApplications
-                        }
-                      </h3>
-
-                    </div>
-
-                    <div className="stat-icon green-icon">
-                      <CheckCircle
-                        size={21}
-                      />
-                    </div>
-
-                  </div>
-
-                  <div className="stat-card">
-
-                    <div className="stat-info">
-
-                      <p>Rejected</p>
-
-                      <h3>
-                        {
-                          rejectedApplications
-                        }
-                      </h3>
-
-                    </div>
-
-                    <div className="stat-icon red-icon">
-                      <XCircle size={21} />
-                    </div>
-
-                  </div>
-
-                </section>
-
-                {/* Dashboard Grid */}
-
-                <section className="dashboard-grid">
-
-                  {/* Applications */}
-
-                  <div className="section-card">
-
-                    <div className="section-header">
-
-                      <h3>
-                        Recent Applications
-                      </h3>
-
-                      <button
-                        className="view-all-btn"
-                        onClick={() =>
-                          handleNavigation(
-                            "applications"
-                          )
-                        }
-                      >
-                        View All
-                      </button>
-
-                    </div>
-
-                    <div className="application-list">
-
-                      {filteredApplications.length >
-                        0 ? (
-                        filteredApplications.map(
-                          (application) => (
-                            <div
-                              className="application-row"
-                              key={
-                                application.id
-                              }
-                            >
-
-                              <div className="pet-info">
-
-                                <div className="pet-avatar">
-                                  <PawPrint
-                                    size={21}
-                                  />
-                                </div>
-
-                                <div className="pet-details">
-
-                                  <h4>
-                                    {getPetName(
-                                      application
-                                    )}
-                                  </h4>
-
-                                  <p>
-                                    {getPetType(
-                                      application
-                                    )}
-                                    {" • "}
-                                    {getShelterName(
-                                      application
-                                    )}
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                              <div className="application-meta">
-
-                                <span
-                                  className={`status ${(
-                                    application.status ||
-                                    "Pending"
-                                  ).toLowerCase()}`}
-                                >
-
-                                  {getStatusIcon(
-                                    application.status
-                                  )}
-
-                                  {application.status ||
-                                    "Pending"}
-
-                                </span>
-
-                                <span className="application-date">
-
-                                  {getApplicationDate(
-                                    application
-                                  )}
-
-                                </span>
-
-                              </div>
-
-                            </div>
-                          )
-                        )
-                      ) : (
-
-                        <div className="empty-state">
-
-                          <div className="empty-state-icon">
-                            <Search size={23} />
-                          </div>
-
-                          <h4>
-                            No applications found
-                          </h4>
-
-                          <p>
-                            {searchQuery
-                              ? "Try searching with a different keyword."
-                              : "You haven't submitted any adoption applications yet."}
-                          </p>
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
-                  {/* Quick Actions */}
-
-                  <div className="section-card">
-
-                    <div className="section-header">
-
-                      <h3>
-                        Quick Actions
-                      </h3>
-
-                    </div>
-
-                    <div className="quick-actions">
-
-                      {/* Applications */}
-
-                      <button
-                        className="quick-action"
-                        onClick={() =>
-                          handleNavigation(
-                            "applications"
-                          )
-                        }
-                      >
-
-                        <div className="quick-action-icon">
-                          <FileText size={18} />
-                        </div>
-
-                        <div className="quick-action-text">
-
-                          <strong>
-                            My Applications
-                          </strong>
-
-                          <span>
-                            Track your
-                            adoption
-                            applications
-                          </span>
-
-                        </div>
-
-                        <ChevronRight
-                          size={16}
-                        />
-
-                      </button>
-
-                      {/* Profile */}
-
-                      <button
-                        className="quick-action"
-                        onClick={() =>
-                          navigate(
-                            "/profile/adopter"
-                          )
-                        }
-                      >
-
-                        <div className="quick-action-icon">
-                          <User size={18} />
-                        </div>
-
-                        <div className="quick-action-text">
-
-                          <strong>
-                            My Profile
-                          </strong>
-
-                          <span>
-                            View and edit
-                            your
-                            information
-                          </span>
-
-                        </div>
-
-                        <ChevronRight
-                          size={16}
-                        />
-
-                      </button>
-
-                      {/* Settings */}
-
-                      <button
-                        className="quick-action"
-                        onClick={() =>
-                          handleNavigation(
-                            "settings"
-                          )
-                        }
-                      >
-
-                        <div className="quick-action-icon">
-                          <Settings
-                            size={18}
-                          />
-                        </div>
-
-                        <div className="quick-action-text">
-
-                          <strong>
-                            Settings
-                          </strong>
-
-                          <span>
-                            Manage your
-                            account
-                          </span>
-
-                        </div>
-
-                        <ChevronRight
-                          size={16}
-                        />
-
-                      </button>
-
-                      {/* Favorites */}
-
-                      <button className="quick-action">
-
-                        <div className="quick-action-icon">
-                          <Heart size={18} />
-                        </div>
-
-                        <div className="quick-action-text">
-
-                          <strong>
-                            Favorite Pets
-                          </strong>
-
-                          <span>
-                            View pets you
-                            saved
-                          </span>
-
-                        </div>
-
-                        <ChevronRight
-                          size={16}
-                        />
-
-                      </button>
-
-                    </div>
-
-                  </div>
-
-                </section>
-
-              </>
-            )}
-
-          {/* =========================
-              MY APPLICATIONS
-          ========================= */}
-
-          {activePage ===
-            "applications" && (
-              <section className="section-card">
-
-                <div className="section-header">
-
-                  <h3>
-                    My Applications
-                  </h3>
-
-                  <span className="application-count">
-                    {totalApplications}{" "}
-                    applications
-                  </span>
 
                 </div>
 
-                <div className="application-list">
+                <div className="stat-card">
 
-                  {filteredApplications.length >
-                    0 ? (
-                    filteredApplications.map(
-                      (application) => (
-                        <div
-                          className="application-row"
-                          key={
-                            application.id
-                          }
-                        >
+                  <div className="stat-info">
+                    <p>Pending</p>
 
-                          <div className="pet-info">
+                    <h3>
+                      {pendingApplications}
+                    </h3>
+                  </div>
 
-                            <div className="pet-avatar">
-                              <PawPrint
-                                size={21}
-                              />
-                            </div>
+                  <div className="stat-icon blue-icon">
+                    <Clock size={21} />
+                  </div>
 
-                            <div className="pet-details">
+                </div>
 
-                              <h4>
-                                {getPetName(
-                                  application
-                                )}
-                              </h4>
+                <div className="stat-card">
 
-                              <p>
-                                {getPetType(
-                                  application
-                                )}
-                                {" • "}
-                                {getShelterName(
-                                  application
-                                )}
-                              </p>
+                  <div className="stat-info">
+                    <p>Approved</p>
 
-                            </div>
+                    <h3>
+                      {approvedApplications}
+                    </h3>
+                  </div>
 
-                          </div>
+                  <div className="stat-icon green-icon">
+                    <CheckCircle size={21} />
+                  </div>
 
-                          <div className="application-meta">
+                </div>
 
-                            <span
-                              className={`status ${(
-                                application.status ||
-                                "Pending"
-                              ).toLowerCase()}`}
-                            >
+                <div className="stat-card">
 
-                              {getStatusIcon(
-                                application.status
-                              )}
+                  <div className="stat-info">
+                    <p>Rejected</p>
 
-                              {application.status ||
-                                "Pending"}
+                    <h3>
+                      {rejectedApplications}
+                    </h3>
+                  </div>
 
-                            </span>
-
-                            <span className="application-date">
-
-                              {getApplicationDate(
-                                application
-                              )}
-
-                            </span>
-
-                          </div>
-
-                        </div>
-                      )
-                    )
-                  ) : (
-
-                    <div className="empty-state">
-
-                      <div className="empty-state-icon">
-                        <FileText size={23} />
-                      </div>
-
-                      <h4>
-                        No applications
-                      </h4>
-
-                      <p>
-                        You haven't
-                        submitted any
-                        adoption
-                        applications yet.
-                      </p>
-
-                    </div>
-
-                  )}
+                  <div className="stat-icon red-icon">
+                    <XCircle size={21} />
+                  </div>
 
                 </div>
 
               </section>
-            )}
 
-          {/* =========================
-              SETTINGS
-          ========================= */}
+              {/* DASHBOARD GRID */}
 
-          {activePage ===
-            "settings" && (
-              <section className="section-card">
+              <section className="dashboard-grid">
 
-                <div className="section-header">
+                {/* RECENT APPLICATIONS */}
 
-                  <h3>
-                    Settings
-                  </h3>
+                <div className="section-card">
+
+                  <div className="section-header">
+
+                    <h3>
+                      Recent Applications
+                    </h3>
+
+                    <button
+                      className="view-all-btn"
+                      onClick={() =>
+                        handleNavigation(
+                          "applications"
+                        )
+                      }
+                    >
+                      View All
+                    </button>
+
+                  </div>
+
+                  <div className="application-list">
+
+                    {filteredApplications.length >
+                    0 ? (
+                      filteredApplications.map(
+                        (application) => (
+                          <div
+                            className="application-row"
+                            key={
+                              application.id
+                            }
+                          >
+
+                            <div className="pet-info">
+
+                              <div className="pet-avatar">
+                                <PawPrint
+                                  size={21}
+                                />
+                              </div>
+
+                              <div className="pet-details">
+
+                                <h4>
+                                  {getPetName(
+                                    application
+                                  )}
+                                </h4>
+
+                                <p>
+                                  {getPetType(
+                                    application
+                                  )}
+                                  {" • "}
+                                  {getShelterName(
+                                    application
+                                  )}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                            <div className="application-meta">
+
+                              <span
+                                className={`status ${
+                                  (
+                                    application.status ||
+                                    "Pending"
+                                  ).toLowerCase()
+                                }`}
+                              >
+                                {getStatusIcon(
+                                  application.status
+                                )}
+
+                                {application.status ||
+                                  "Pending"}
+                              </span>
+
+                              <span className="application-date">
+                                {getApplicationDate(
+                                  application
+                                )}
+                              </span>
+
+                            </div>
+
+                          </div>
+                        )
+                      )
+                    ) : (
+                      <div className="empty-state">
+
+                        <div className="empty-state-icon">
+                          <Search size={23} />
+                        </div>
+
+                        <h4>
+                          No applications found
+                        </h4>
+
+                        <p>
+                          {searchQuery
+                            ? "Try searching with a different keyword."
+                            : "You haven't submitted any adoption applications yet."}
+                        </p>
+
+                      </div>
+                    )}
+
+                  </div>
 
                 </div>
 
-                <div className="settings-content">
+                {/* QUICK ACTIONS */}
 
-                  <div className="settings-option">
+                <div className="section-card">
 
-                    <div>
+                  <div className="section-header">
 
-                      <strong>
-                        Dark Mode
-                      </strong>
+                    <h3>
+                      Quick Actions
+                    </h3>
 
-                      <span>
-                        Change the
-                        appearance of Pet
-                        Connect
-                      </span>
+                  </div>
 
-                    </div>
+                  <div className="quick-actions">
+
+                    {/* APPLICATIONS */}
 
                     <button
-                      className="theme-btn"
-                      onClick={
-                        toggleDarkMode
+                      className="quick-action"
+                      onClick={() =>
+                        handleNavigation(
+                          "applications"
+                        )
                       }
                     >
-                      {darkMode ? (
-                        <Sun size={18} />
-                      ) : (
-                        <Moon size={18} />
-                      )}
+                      <div className="quick-action-icon">
+                        <FileText size={18} />
+                      </div>
+
+                      <div className="quick-action-text">
+                        <strong>
+                          My Applications
+                        </strong>
+
+                        <span>
+                          Track your adoption
+                          applications
+                        </span>
+                      </div>
+
+                      <ChevronRight size={16} />
+                    </button>
+
+                    {/* PROFILE */}
+
+                    <button
+                      className="quick-action"
+                      onClick={() =>
+                        navigate(
+                          "/profile/adopter"
+                        )
+                      }
+                    >
+                      <div className="quick-action-icon">
+                        <User size={18} />
+                      </div>
+
+                      <div className="quick-action-text">
+                        <strong>
+                          My Profile
+                        </strong>
+
+                        <span>
+                          View and edit your
+                          information
+                        </span>
+                      </div>
+
+                      <ChevronRight size={16} />
+                    </button>
+
+                    {/* SETTINGS */}
+
+                    <button
+                      className="quick-action"
+                      onClick={() =>
+                        handleNavigation(
+                          "settings"
+                        )
+                      }
+                    >
+                      <div className="quick-action-icon">
+                        <Settings size={18} />
+                      </div>
+
+                      <div className="quick-action-text">
+                        <strong>
+                          Settings
+                        </strong>
+
+                        <span>
+                          Manage your account
+                        </span>
+                      </div>
+
+                      <ChevronRight size={16} />
                     </button>
 
                   </div>
@@ -1338,7 +1028,180 @@ export default function AdopterDashboard({
                 </div>
 
               </section>
-            )}
+
+            </>
+          )}
+
+          {/* =========================
+              APPLICATIONS
+          ========================= */}
+
+          {activePage ===
+            "applications" && (
+            <section className="section-card">
+
+              <div className="section-header">
+
+                <h3>
+                  My Applications
+                </h3>
+
+                <span className="application-count">
+                  {totalApplications}{" "}
+                  applications
+                </span>
+
+              </div>
+
+              <div className="application-list">
+
+                {filteredApplications.length >
+                0 ? (
+                  filteredApplications.map(
+                    (application) => (
+                      <div
+                        className="application-row"
+                        key={
+                          application.id
+                        }
+                      >
+
+                        <div className="pet-info">
+
+                          <div className="pet-avatar">
+                            <PawPrint
+                              size={21}
+                            />
+                          </div>
+
+                          <div className="pet-details">
+
+                            <h4>
+                              {getPetName(
+                                application
+                              )}
+                            </h4>
+
+                            <p>
+                              {getPetType(
+                                application
+                              )}
+                              {" • "}
+                              {getShelterName(
+                                application
+                              )}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                        <div className="application-meta">
+
+                          <span
+                            className={`status ${
+                              (
+                                application.status ||
+                                "Pending"
+                              ).toLowerCase()
+                            }`}
+                          >
+                            {getStatusIcon(
+                              application.status
+                            )}
+
+                            {application.status ||
+                              "Pending"}
+                          </span>
+
+                          <span className="application-date">
+                            {getApplicationDate(
+                              application
+                            )}
+                          </span>
+
+                        </div>
+
+                      </div>
+                    )
+                  )
+                ) : (
+                  <div className="empty-state">
+
+                    <div className="empty-state-icon">
+                      <FileText size={23} />
+                    </div>
+
+                    <h4>
+                      No applications
+                    </h4>
+
+                    <p>
+                      You haven't submitted
+                      any adoption
+                      applications yet.
+                    </p>
+
+                  </div>
+                )}
+
+              </div>
+
+            </section>
+          )}
+
+          {/* =========================
+              SETTINGS
+          ========================= */}
+
+          {activePage ===
+            "settings" && (
+            <section className="section-card">
+
+              <div className="section-header">
+
+                <h3>
+                  Settings
+                </h3>
+
+              </div>
+
+              <div className="settings-content">
+
+                <div className="settings-option">
+
+                  <div>
+
+                    <strong>
+                      Dark Mode
+                    </strong>
+
+                    <span>
+                      Change the appearance
+                      of Pet Connect
+                    </span>
+
+                  </div>
+
+                  <button
+                    className="theme-btn"
+                    onClick={
+                      toggleDarkMode
+                    }
+                  >
+                    {darkMode ? (
+                      <Sun size={18} />
+                    ) : (
+                      <Moon size={18} />
+                    )}
+                  </button>
+
+                </div>
+
+              </div>
+
+            </section>
+          )}
 
         </main>
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Adopter;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdopterDashboardController extends Controller
 {
@@ -23,11 +24,42 @@ class AdopterDashboardController extends Controller
         }
 
         /*
-         * Get applications submitted by the authenticated adopter.
+         * ==========================================
+         * APPLICATION STATISTICS
+         * ==========================================
          *
-         * with() loads the related pet and shelter in advance so
-         * we don't run unnecessary database queries for every application.
+         * Basic SQL COUNT() is used here.
+         *
+         * The count is calculated only for the
+         * currently authenticated adopter.
          */
+
+        $totalApplications = DB::table('applications')
+            ->where('adopter_id', $user->id)
+            ->count();
+
+        $pendingApplications = DB::table('applications')
+            ->where('adopter_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+
+        $approvedApplications = DB::table('applications')
+            ->where('adopter_id', $user->id)
+            ->where('status', 'approved')
+            ->count();
+
+        $rejectedApplications = DB::table('applications')
+            ->where('adopter_id', $user->id)
+            ->where('status', 'rejected')
+            ->count();
+
+
+        /*
+         * ==========================================
+         * APPLICATION LIST
+         * ==========================================
+         */
+
         $applications = $user->applications()
             ->with([
                 'pet.shelter',
@@ -35,26 +67,13 @@ class AdopterDashboardController extends Controller
             ->latest()
             ->get();
 
-        /*
-         * Application statistics.
-         */
-        $totalApplications = $applications->count();
-
-        $pendingApplications = $applications
-            ->where('status', 'pending')
-            ->count();
-
-        $approvedApplications = $applications
-            ->where('status', 'approved')
-            ->count();
-
-        $rejectedApplications = $applications
-            ->where('status', 'rejected')
-            ->count();
 
         /*
-         * Format applications for the React dashboard.
+         * ==========================================
+         * FORMAT APPLICATIONS
+         * ==========================================
          */
+
         $formattedApplications = $applications->map(function ($application) {
             return [
                 'id' => $application->id,
@@ -70,6 +89,13 @@ class AdopterDashboardController extends Controller
                 'date' => $application->created_at?->format('M d, Y'),
             ];
         });
+
+
+        /*
+         * ==========================================
+         * API RESPONSE
+         * ==========================================
+         */
 
         return response()->json([
             'stats' => [
