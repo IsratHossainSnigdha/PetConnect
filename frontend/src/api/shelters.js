@@ -100,3 +100,16 @@ export async function deleteShelter(id) {
 export async function fetchStats() {
   return apiFetch('/admin/stats');
 }
+
+/**
+ * ADMIN LIST  ->  GET /api/admin/admins        (issue #17)
+ *
+ * Fills the "Assigned Admin" dropdown on the shelter form. The backend runs
+ *
+ *     SELECT id, name, email FROM users WHERE role = 'platform_admin';
+ *
+ * so only platform admins can ever be assigned to a shelter.
+ */
+export async function fetchAdmins() {
+  return apiFetch('/admin/admins');
+}

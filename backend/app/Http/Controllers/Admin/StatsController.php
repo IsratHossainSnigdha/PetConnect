@@ -3,30 +3,25 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Shelter;
-use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /*
-|--------------------------------------------------------------------------
+|==============================================================================
 | STATS CONTROLLER  -  the numbers on the admin dashboard cards
-|--------------------------------------------------------------------------
+|==============================================================================
 |
-| This file is a good demonstration of one idea:
+| Written in raw SQL. The one idea this file demonstrates is:
 |
 |     >> make the DATABASE do the counting, not PHP <<
 |
-| The tempting version is:
-|
-|     $users = User::all();          // pulls EVERY row across the network
-|     $total = count($users);        // then counts them in PHP
-|
-| With 50,000 users that loads 50,000 objects into memory just to produce one
-| number. The correct version asks MySQL for the number and transfers 1 value:
+| The tempting way is to fetch every row and count the array in PHP. With
+| 50,000 users that drags 50,000 rows across the network to produce a single
+| number. The correct way asks MySQL for the number and transfers one value:
 |
 |     SELECT COUNT(*) FROM users;
 |
-| This is called an AGGREGATE function. COUNT, SUM, AVG, MIN and MAX all work
-| the same way - the work happens where the data already lives.
+| COUNT is an AGGREGATE function. SUM, AVG, MIN and MAX all work the same way:
+| the arithmetic happens where the data already lives.
 |
 */
 class StatsController extends Controller
@@ -36,39 +31,95 @@ class StatsController extends Controller
      */
     public function index()
     {
-        // SELECT COUNT(*) FROM shelters;
-        $totalShelters = Shelter::count();
+        /*
+        | selectOne() returns a single row, so we can read ->total straight off
+        | it. "AS total" names the result column - without it the column would
+        | literally be called "COUNT(*)", which is awkward to read in PHP.
+        */
+        $totalShelters = DB::selectOne(
+            "SELECT COUNT(*) AS total FROM shelters"
+        )->total;
+
+        $totalUsers = DB::selectOne(
+            "SELECT COUNT(*) AS total FROM users"
+        )->total;
 
         /*
-        | GROUP BY: count the shelters in each status with ONE query instead of
-        | running three separate COUNT queries.
+        |----------------------------------------------------------------------
+        | GROUP BY - counting each category in ONE query
+        |----------------------------------------------------------------------
+        |
+        | We need the shelter count per status. The naive way is three separate
+        | queries (one per status). GROUP BY does all of it at once:
         |
         |     SELECT status, COUNT(*) AS total
         |     FROM shelters
         |     GROUP BY status;
         |
-        | GROUP BY collapses all rows sharing a status into a single output row,
-        | and the aggregate is calculated per group:
+        | GROUP BY collapses every row sharing the same status into ONE output
+        | row, and COUNT tells us how many were collapsed:
         |
         |     active   | 3
         |     pending  | 1
         |     inactive | 1
         |
-        | pluck('total','status') then reshapes that result set into the handy
-        | PHP array ['active' => 3, 'pending' => 1, 'inactive' => 1].
+        | Rule to remember: every column in the SELECT must either appear in
+        | the GROUP BY, or be wrapped in an aggregate function like COUNT.
         |
-        | This query is the reason we put an index on `status` in the migration.
+        | This query is the reason the migration put an index on `status`.
         */
-        $byStatus = Shelter::query()
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $shelterRows = DB::select(
+            "SELECT status, COUNT(*) AS total
+             FROM shelters
+             GROUP BY status"
+        );
 
-        // Same trick over the users table, grouped by the `role` ENUM.
-        $usersByRole = User::query()
-            ->selectRaw('role, COUNT(*) as total')
-            ->groupBy('role')
-            ->pluck('total', 'role');
+        // Reshape the rows into ['active' => 3, 'pending' => 1, ...] so we can
+        // look each one up by name below.
+        $byStatus = [];
+        foreach ($shelterRows as $row) {
+            $byStatus[$row->status] = $row->total;
+        }
+
+        // The same trick over the users table, grouped by the `role` column.
+        $roleRows = DB::select(
+            "SELECT role, COUNT(*) AS total
+             FROM users
+             GROUP BY role"
+        );
+
+        $byRole = [];
+        foreach ($roleRows as $row) {
+            $byRole[$row->role] = $row->total;
+        }
+
+        /*
+        |----------------------------------------------------------------------
+        | NOT EXISTS - "rows in A with no matching row in B"
+        |----------------------------------------------------------------------
+        |
+        | A shelter with no staff account attached yet.
+        |
+        |     SELECT COUNT(*) FROM shelters
+        |     WHERE NOT EXISTS (
+        |         SELECT 1 FROM users WHERE users.shelter_id = shelters.id
+        |     );
+        |
+        | The inner query is a SUBQUERY - a query inside a query. For each
+        | shelter, MySQL asks "is there any user pointing at me?" and NOT
+        | EXISTS keeps only the shelters where the answer is no.
+        |
+        | "SELECT 1" looks odd but is deliberate: EXISTS only cares WHETHER a
+        | row was found, never what is in it, so we do not waste effort
+        | fetching real columns.
+        */
+        $unstaffed = DB::selectOne(
+            "SELECT COUNT(*) AS total
+             FROM shelters
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM users WHERE users.shelter_id = shelters.id
+             )"
+        )->total;
 
         return response()->json([
             'message' => 'Statistics fetched successfully.',
@@ -78,23 +129,12 @@ class StatsController extends Controller
                 'pending_shelters'  => $byStatus['pending']  ?? 0,
                 'inactive_shelters' => $byStatus['inactive'] ?? 0,
 
-                // SELECT COUNT(*) FROM users;
-                'total_users'       => User::count(),
-                'total_adopters'    => $usersByRole['adopter']        ?? 0,
-                'total_staff'       => $usersByRole['shelter_staff']  ?? 0,
-                'total_admins'      => $usersByRole['platform_admin'] ?? 0,
+                'total_users'       => $totalUsers,
+                'total_adopters'    => $byRole['adopter']        ?? 0,
+                'total_staff'       => $byRole['shelter_staff']  ?? 0,
+                'total_admins'      => $byRole['platform_admin'] ?? 0,
 
-                // A shelter with no staff account attached yet.
-                //
-                // doesntHave('staff') builds a NOT EXISTS subquery:
-                //     SELECT COUNT(*) FROM shelters
-                //     WHERE NOT EXISTS (SELECT 1 FROM users
-                //                       WHERE users.shelter_id = shelters.id);
-                //
-                // Expressing "rows in A with no matching row in B" this way is
-                // far clearer - and usually faster - than fetching both tables
-                // and comparing them in PHP.
-                'unstaffed_shelters' => Shelter::doesntHave('staff')->count(),
+                'unstaffed_shelters' => $unstaffed,
             ],
         ]);
     }

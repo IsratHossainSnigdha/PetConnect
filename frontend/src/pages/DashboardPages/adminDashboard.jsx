@@ -33,7 +33,8 @@ import {
   createShelter,
   updateShelter,
   deleteShelter,
-  fetchStats
+  fetchStats,
+  fetchAdmins
 } from '../../api/shelters';
 
 import { fetchMe, logout } from '../../api/auth';
@@ -47,6 +48,10 @@ const EMPTY_FORM = {
   contact_email: '',
   contact_phone: '',
   status: 'pending',   // matches the DEFAULT 'pending' in the migration
+
+  // issue #17: which platform admin manages this shelter.
+  // '' means "nobody assigned" and is sent to the API as null.
+  admin_id: '',
 };
 
 export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPage }) {
@@ -96,6 +101,12 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
   const [stats, setStats] = useState(null);
 
   /*
+  | The list of platform admins that can be assigned to a shelter (issue #17).
+  | Loaded once, because it changes far less often than the shelter list.
+  */
+  const [admins, setAdmins] = useState([]);
+
+  /*
   | Load the signed-in user and the statistics once, when the dashboard opens.
   |
   | Promise.all fires BOTH requests at the same time instead of waiting for the
@@ -105,11 +116,12 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchMe(), fetchStats()])
-      .then(([user, statsData]) => {
+    Promise.all([fetchMe(), fetchStats(), fetchAdmins()])
+      .then(([user, statsData, adminData]) => {
         if (cancelled) return;
         setCurrentUser(user);
         setStats(statsData.stats);
+        setAdmins(adminData.admins);   // fills the "Assigned Admin" dropdown
       })
       .catch(() => {
         // RequireAuth already handles an expired session by redirecting to
@@ -211,6 +223,11 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
       contact_email: shelter.contact_email,
       contact_phone: shelter.contact_phone,
       status: shelter.status,
+
+      // The database stores NULL when no admin is assigned, but an HTML
+      // <select> can only hold a string. ?? '' converts null into the empty
+      // option; handleSave converts it back to null on the way out.
+      admin_id: shelter.admin_id ?? '',
     });
     setFormErrors({});
     setModalOpen(true);
@@ -237,11 +254,25 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
     setSaving(true);
     setFormErrors({});
 
+    /*
+    | The <select> gives us a STRING ("3") or the empty string. The database
+    | column is a number or NULL, so convert before sending:
+    |
+    |     ""   -> null   (no admin assigned)
+    |     "3"  -> 3      (a real foreign key value)
+    |
+    | Sending "" would fail validation, because "" is not a valid users.id.
+    */
+    const payload = {
+      ...form,
+      admin_id: form.admin_id === '' ? null : Number(form.admin_id),
+    };
+
     try {
       if (editingId) {
-        await updateShelter(editingId, form);   // PUT  -> UPDATE
+        await updateShelter(editingId, payload);   // PUT  -> UPDATE
       } else {
-        await createShelter(form);              // POST -> INSERT
+        await createShelter(payload);              // POST -> INSERT
       }
 
       setModalOpen(false);
@@ -1457,6 +1488,8 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                         <th>ID</th>
                         <th>Shelter Name</th>
                         <th>Location</th>
+                        {/* issue #17: comes from the JOIN to the users table */}
+                        <th>Assigned Admin</th>
                         <th>Contact</th>
                         <th>Staff</th>
                         <th>Status</th>
@@ -1475,7 +1508,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                       */}
                       {loading && (
                         <tr>
-                          <td colSpan={7} className="table-message">
+                          <td colSpan={8} className="table-message">
                             <RefreshCw size={14} className="spin" /> Loading shelters from the database...
                           </td>
                         </tr>
@@ -1483,7 +1516,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
 
                       {!loading && loadError && (
                         <tr>
-                          <td colSpan={7} className="table-message error">
+                          <td colSpan={8} className="table-message error">
                             {loadError}
                             <br />
                             Is the Laravel server running at {import.meta.env.VITE_API_URL}?
@@ -1493,7 +1526,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
 
                       {!loading && !loadError && shelters.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="table-message">
+                          <td colSpan={8} className="table-message">
                             No shelters matched. The query returned 0 rows.
                           </td>
                         </tr>
@@ -1517,6 +1550,33 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                           </td>
 
                           <td>{shelter.location}</td>
+
+                          {/*
+                            ASSIGNED ADMIN  (issue #17)
+
+                            admin_name and admin_email do not exist in the
+                            shelters table - they were pulled in by the
+                            LEFT JOIN to users in ShelterController@index.
+
+                            They are null when no admin is assigned, which is
+                            why we check before rendering rather than printing
+                            an empty box.
+                          */}
+                          <td>
+                            {shelter.admin_name ? (
+                              <>
+                                <strong>{shelter.admin_name}</strong>
+                                <br />
+                                <span style={{ color: '#64748b', fontSize: '11px' }}>
+                                  {shelter.admin_email}
+                                </span>
+                              </>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                                Not assigned
+                              </span>
+                            )}
+                          </td>
 
                           <td>
                             {shelter.contact_email}
@@ -1758,6 +1818,40 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                 {formErrors.status && <div className="field-error">{formErrors.status[0]}</div>}
               </div>
 
+              {/*
+                ASSIGNED ADMIN  (issue #17)
+
+                The value saved is the admin's `id`, not their name - that id
+                goes into shelters.admin_id, which is the FOREIGN KEY. Storing
+                the name instead would break the moment somebody renamed
+                themselves, and would let a typo point at nobody at all.
+              */}
+              <div className="form-field">
+                <label>
+                  Assigned Admin{' '}
+                  <span className="col-hint">- column: admin_id (foreign key to users.id)</span>
+                </label>
+                <select
+                  name="admin_id"
+                  value={form.admin_id}
+                  onChange={handleFormChange}
+                  className={formErrors.admin_id ? 'has-error' : ''}
+                >
+                  {/* Empty value = store NULL = "nobody is responsible yet" */}
+                  <option value="">-- No admin assigned --</option>
+
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.name} ({admin.email})
+                      {admin.manages_count > 0 ? ` - manages ${admin.manages_count}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.admin_id && (
+                  <div className="field-error">{formErrors.admin_id[0]}</div>
+                )}
+              </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setModalOpen(false)}>
                   Cancel
@@ -1797,6 +1891,17 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
             <div className="view-row"><span>Location</span><span>{viewing.location}</span></div>
             <div className="view-row"><span>Contact email</span><span>{viewing.contact_email}</span></div>
             <div className="view-row"><span>Contact phone</span><span>{viewing.contact_phone}</span></div>
+
+            {/* From the LEFT JOIN to users (issue #17) */}
+            <div className="view-row">
+              <span>Assigned admin</span>
+              <span>
+                {viewing.admin_name
+                  ? `${viewing.admin_name} (${viewing.admin_email})`
+                  : 'Not assigned'}
+              </span>
+            </div>
+
             <div className="view-row">
               <span>Status</span>
               <span><span className={`status-badge ${viewing.status}`}>{viewing.status}</span></span>
