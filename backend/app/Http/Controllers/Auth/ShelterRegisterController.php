@@ -3,125 +3,170 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\Shelter;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
+/*
+|==============================================================================
+| SHELTER STAFF SIGNUP  ->  POST /api/auth/shelter/register
+|==============================================================================
+|
+| ONE form, TWO tables. Signing up creates:
+|
+|     1. a row in `shelters`  (the organisation)
+|     2. a row in `users`     (the person), pointing at it via shelter_id
+|
+| This is the most interesting signup in the project, because it is the one
+| that has to write to two tables at once.
+|
+*/
 class ShelterRegisterController extends Controller
 {
-    /**
-     * SHELTER STAFF SIGNUP  ->  POST /api/auth/shelter/register
-     *
-     * ONE form, TWO tables. Signing up creates:
-     *     1. a row in `shelters` (the organisation)
-     *     2. a row in `users`    (the person), pointing at it via shelter_id
-     *
-     * Previously signup only wrote the users row and kept the shelter name as
-     * loose text, so shelters created here never showed up in the admin
-     * dashboard's shelter list. Now both rows are created together.
-     */
     public function register(Request $request)
     {
         $validated = $request->validate([
-            'staffName' => ['required', 'regex:/^[A-Za-z\s]+$/'],
-
-            // The shelter name now has to be unique in the SHELTERS table, not
-            // just free text - two organisations cannot share a name.
-            'shelterName' => ['required', 'regex:/^[A-Za-z\s]+$/', 'unique:shelters,name'],
-
+            'staffName'     => ['required', 'regex:/^[A-Za-z\s]+$/'],
+            'shelterName'   => ['required', 'regex:/^[A-Za-z\s]+$/'],
             'shelterNumber' => ['required', 'regex:/^(?:\+88|01)?\d{11}$/'],
-            'staffNumber' => ['required', 'regex:/^(?:\+88|01)?\d{11}$/'],
-
-            // Checked against BOTH tables: this address becomes the staff
-            // login and the shelter's public contact, and both columns are UNIQUE.
-            'email' => ['required', 'email', 'unique:users,email', 'unique:shelters,contact_email'],
-
-            'password' => [
+            'staffNumber'   => ['required', 'regex:/^(?:\+88|01)?\d{11}$/'],
+            'email'         => ['required', 'email'],
+            'password'      => [
                 'required',
                 'confirmed',
-                Password::min(8)
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols(),
+                Password::min(8)->mixedCase()->numbers()->symbols(),
             ],
         ]);
 
-        // Normalise once, then use the same value for both tables, so the two
+        // Normalise once, then use the same value for both tables so the two
         // rows can never disagree about the address.
         $email = strtolower($validated['email']);
 
         /*
+        | Check both tables before writing anything.
+        |
+        | This email becomes the staff login AND the shelter's public contact,
+        | and both of those columns are UNIQUE. The shelter name is unique too.
+        */
+        $clash = DB::selectOne(
+            "SELECT
+                 (SELECT COUNT(*) FROM users    WHERE email = ?)         AS user_email,
+                 (SELECT COUNT(*) FROM shelters WHERE contact_email = ?) AS shelter_email,
+                 (SELECT COUNT(*) FROM shelters WHERE name = ?)          AS shelter_name",
+            [$email, $email, $validated['shelterName']]
+        );
+
+        $errors = [];
+        if ($clash->user_email > 0 || $clash->shelter_email > 0) {
+            $errors['email'] = ['This email is already registered.'];
+        }
+        if ($clash->shelter_name > 0) {
+            $errors['shelterName'] = ['A shelter with this name already exists.'];
+        }
+
+        if ($errors) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors'  => $errors,
+            ], 422);
+        }
+
+        /*
+        |----------------------------------------------------------------------
         | WHY THIS MUST BE A TRANSACTION
+        |----------------------------------------------------------------------
         |
         | We are writing to two tables. Without a transaction this failure is
         | possible:
         |
         |     INSERT INTO shelters ... -> succeeds
-        |     INSERT INTO users ...    -> fails (duplicate email, crash, disk full)
+        |     INSERT INTO users ...    -> fails (crash, disk full, race)
         |
-        | which leaves a shelter in the database that nobody can log in to - a
-        | row that should never have existed on its own.
+        | leaving a shelter in the database that nobody can log in to - a row
+        | that should never have existed on its own.
         |
-        | DB::transaction() wraps both statements in BEGIN ... COMMIT. If any
-        | statement inside throws, MySQL performs a ROLLBACK and the database is
-        | left exactly as it was. All of it, or none of it - this is ATOMICITY,
-        | the "A" of the ACID properties.
+        | A transaction wraps both statements:
+        |
+        |     BEGIN;
+        |     INSERT INTO shelters ...;
+        |     INSERT INTO users ...;
+        |     COMMIT;              <- both saved together
+        |
+        | If anything inside throws, MySQL performs a ROLLBACK and the database
+        | ends up exactly as it was. All of it, or none of it. This is
+        | ATOMICITY - the "A" in the ACID properties.
         */
-        $user = DB::transaction(function () use ($validated, $email) {
+        $newUserId = DB::transaction(function () use ($validated, $email) {
 
-            // TABLE 1: the organisation.
-            $shelter = Shelter::create([
-                'name'          => $validated['shelterName'],
-                'location'      => 'Not specified',  // the signup form has no location field yet
-                'contact_email' => $email,
-                'contact_phone' => $validated['shelterNumber'],
+            // ---- TABLE 1: the organisation ------------------------------
+            DB::insert(
+                "INSERT INTO shelters
+                    (name, location, contact_email, contact_phone, status, created_at, updated_at)
+                 VALUES
+                    (?, ?, ?, ?, 'pending', NOW(), NOW())",
+                [
+                    $validated['shelterName'],
+                    'Not specified',              // the signup form has no location field yet
+                    $email,
+                    $validated['shelterNumber'],
+                ]
+            );
 
-                // New shelters start as 'pending' so a platform admin approves
-                // them before they go live - the same default the migration sets.
-                'status'        => 'pending',
-            ]);
+            // The id MySQL just generated. We need it for the foreign key.
+            $shelterId = DB::getPdo()->lastInsertId();
 
-            // TABLE 2: the person, linked to the row we just created.
+            // ---- TABLE 2: the person, linked to that shelter -------------
             //
-            // $shelter->id only exists because the INSERT above already ran and
-            // MySQL handed back the AUTO_INCREMENT value. The foreign key forces
-            // this ordering: the shelter must exist before anything may point at it.
-            return User::create([
-                'name'       => $validated['staffName'],
-                'email'      => $email,
-                'phone'      => $validated['staffNumber'],
-                'shelter_id' => $shelter->id,   // <- the foreign key
+            // The order is forced on us by the foreign key: the shelter must
+            // exist before anything is allowed to point at it.
+            DB::insert(
+                "INSERT INTO users
+                    (name, email, phone, shelter_id, shelter_name, shelter_contact,
+                     password, role, created_at, updated_at)
+                 VALUES
+                    (?, ?, ?, ?, ?, ?, ?, 'shelter_staff', NOW(), NOW())",
+                [
+                    $validated['staffName'],
+                    $email,
+                    $validated['staffNumber'],
+                    $shelterId,                    // <- the foreign key
+                    $validated['shelterName'],     // legacy columns, kept in sync
+                    $validated['shelterNumber'],   //    so older screens still work
+                    Hash::make($validated['password']),
+                ]
+            );
 
-                // Redundant copies of what `shelters` now stores. Kept in sync
-                // only so older screens still reading these columns keep working;
-                // they should be dropped once nothing reads them.
-                'shelter_name'    => $validated['shelterName'],
-                'shelter_contact' => $validated['shelterNumber'],
-
-                // Hash::make() turns the plain password into a bcrypt hash.
-                // (The model's 'password' => 'hashed' cast would do this anyway;
-                // it detects an already-hashed value and leaves it alone, so
-                // there is no double-hashing here.)
-                'password' => Hash::make($validated['password']),
-                'role'     => 'shelter_staff',
-            ]);
+            // Whatever this closure returns comes back out of DB::transaction().
+            return DB::getPdo()->lastInsertId();
         });
 
-        // Auto-login: issue the API token now, so the new staff member lands
-        // straight on their dashboard. Note this happens AFTER the transaction
-        // has committed - if the two INSERTs had rolled back we would have no
-        // user to issue a token for.
-        $token = $user->createToken('petconnect-' . $user->role)->plainTextToken;
+        // Auto-login. This is AFTER the transaction committed - if the two
+        // INSERTs had rolled back there would be no user to issue a token for.
+        $token = User::find($newUserId)->createToken('petconnect-shelter_staff')->plainTextToken;
+
+        /*
+        | Read the finished result back with a JOIN, so the response shows the
+        | staff member together with the shelter that was created alongside.
+        */
+        $user = DB::selectOne(
+            "SELECT
+                 users.id, users.name, users.email, users.phone,
+                 users.role, users.shelter_id,
+                 shelters.name          AS shelter_name,
+                 shelters.contact_phone AS shelter_contact,
+                 shelters.status        AS shelter_status
+             FROM users
+             JOIN shelters ON shelters.id = users.shelter_id
+             WHERE users.id = ?",
+            [$newUserId]
+        );
 
         return response()->json([
             'message' => 'Shelter staff account created successfully.',
-            'token' => $token,
-            // load() follows the foreign key back, so the response includes the
-            // shelter row that was created alongside this user.
-            'user' => $user->load('shelter'),
+            'token'   => $token,
+            'user'    => $user,
         ], 201);
     }
 }

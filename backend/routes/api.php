@@ -174,6 +174,12 @@ Route::middleware([
         ShelterController::class
     );
 
+    // Admin list for the "Assigned Admin" dropdown (issue #17)
+    Route::get('/admin/admins', [
+        ShelterController::class,
+        'admins'
+    ]);
+
     Route::get('/admin/stats', [
         StatsController::class,
         'index'
