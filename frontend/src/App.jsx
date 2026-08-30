@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 
-// Landing
+// Landing Page
 import LandingPage from "./pages/LandingPage/landingPage";
 
 // Login
 import LoginPage from "./pages/LoginPage/loginPage";
 
-// Route guard
+// Auth Guard
 import RequireAuth from "./components/RequireAuth";
 
 // Signup Pages
@@ -16,16 +16,14 @@ import AdopterSignup from "./pages/SignupPages/adopterSignup";
 import ShelterSignup from "./pages/SignupPages/shelterSignup";
 import AdminSignup from "./pages/SignupPages/adminSignup";
 
-// Dashboard Pages
-import AdminDashboard from "./pages/DashboardPages/adminDashboard";
+// Dashboards & Add Pet / Manage Pets
 import AdopterDashboard from "./pages/DashboardPages/adopterDashboard";
 import ShelterDashboard from "./pages/DashboardPages/shelterDashboard";
+import AddPet from "./pages/DashboardPages/AddPet";
+import ManagePets from "./pages/DashboardPages/ManagePets";
 
-// Profile Pages
-import AdminProfile from "./pages/ProfilePages/adminProfile";
-import AdopterProfile from "./pages/ProfilePages/adopterProfile";
-import ShelterProfile from "./pages/ProfilePages/shelterProfile";
-
+// My Profile Page
+import MyProfile from "./pages/DashboardPages/MyProfile";
 
 // Application Pages
 import AdopterApplications from "./pages/ApplicationPages/adopterApplications";
@@ -43,126 +41,93 @@ import AdminShelters from "./pages/ShelterPages/adminShelters";
 import AdopterComplaints from "./pages/ComplaintPages/adopterComplaints";
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem("petConnectTheme") === "dark";
+  // ================================
+  // USER
+  // ================================
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (error) {
+      console.error("Error loading user:", error);
+      return null;
+    }
   });
 
+  // ================================
+  // DARK MODE
+  // ================================
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("darkMode") === "true";
+  });
+
+  // ================================
+  // TOGGLE DARK MODE
+  // ================================
+  const toggleDarkMode = () => {
+    setDarkMode((previous) => !previous);
+  };
+
+  // ================================
+  // SAVE DARK MODE
+  // ================================
   useEffect(() => {
-    localStorage.setItem(
-      "petConnectTheme",
-      darkMode ? "dark" : "light"
-    );
+    localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
-  const toggleDarkMode = () => {
-    setDarkMode((prev) => !prev);
-  };
+  // ================================
+  // SAVE USER
+  // ================================
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
+  }, [user]);
 
   return (
     <Routes>
 
-      {/* =========================
-          LANDING PAGE
-      ========================= */}
+      {/* LANDING */}
       <Route
         path="/"
-        element={
-          <LandingPage
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
-        }
+        element={<LandingPage />}
       />
 
-      {/* =========================
-          SIGNUP PAGES
-      ========================= */}
-      <Route
-        path="/signup"
-        element={
-          <GlobalSignup
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
-        }
-      />
-
-      <Route
-        path="/signup/adopter"
-        element={
-          <AdopterSignup
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
-        }
-      />
-
-      <Route
-        path="/signup/shelter"
-        element={
-          <ShelterSignup
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
-        }
-      />
-
-      <Route
-        path="/signup/admin"
-        element={
-          <AdminSignup
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
-        }
-      />
-
-      {/* Shelter staff signup */}
-      <Route
-        path="/signup/staff"
-        element={
-          <ShelterSignup
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
-        }
-      />
-
-      {/* =========================
-          LOGIN
-      ========================= */}
+      {/* LOGIN */}
       <Route
         path="/login"
         element={
-          <LoginPage
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
+          <LoginPage setUser={setUser} />
         }
       />
 
-      {/* =========================
-          ADMIN DASHBOARD
-      ========================= */}
+      {/* SIGNUP */}
       <Route
-        path="/dashboard/admin"
-        element={
-          <RequireAuth role="platform_admin">
-            <AdminDashboard
-              darkMode={darkMode}
-              toggleDarkMode={toggleDarkMode}
-            />
-          </RequireAuth>
-        }
+        path="/signup"
+        element={<GlobalSignup />}
+      />
+      <Route
+        path="/signup/adopter"
+        element={<AdopterSignup />}
+      />
+      <Route
+        path="/signup/shelter"
+        element={<ShelterSignup />}
+      />
+      <Route
+        path="/signup/staff"
+        element={<ShelterSignup />}
+      />
+      <Route
+        path="/signup/admin"
+        element={<AdminSignup />}
       />
 
-      {/* =========================
-          ADOPTER DASHBOARD
-      ========================= */}
+      {/* ADOPTER DASHBOARD */}
       <Route
         path="/dashboard/adopter"
         element={
-          <RequireAuth role="adopter">
+          <RequireAuth>
             <AdopterDashboard
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
@@ -171,13 +136,11 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          SHELTER DASHBOARD
-      ========================= */}
+      {/* SHELTER DASHBOARD */}
       <Route
         path="/dashboard/shelter"
         element={
-          <RequireAuth role="shelter_staff">
+          <RequireAuth>
             <ShelterDashboard
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
@@ -186,14 +149,12 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          ADMIN PROFILE
-      ========================= */}
+      {/* ADD PET ROUTE */}
       <Route
-        path="/profile/admin"
+        path="/dashboard/shelter/add-pet"
         element={
-          <RequireAuth role="platform_admin">
-            <AdminProfile
+          <RequireAuth>
+            <AddPet
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
@@ -201,14 +162,12 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          ADOPTER PROFILE
-      ========================= */}
+      {/* MANAGE PETS ROUTE */}
       <Route
-        path="/profile/adopter"
+        path="/dashboard/shelter/manage-pets"
         element={
-          <RequireAuth role="adopter">
-            <AdopterProfile
+          <RequireAuth>
+            <ManagePets
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
@@ -216,14 +175,12 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          SHELTER PROFILE
-      ========================= */}
+      {/* MY PROFILE ROUTE */}
       <Route
         path="/profile/shelter"
         element={
-          <RequireAuth role="shelter_staff">
-            <ShelterProfile
+          <RequireAuth>
+            <MyProfile
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
@@ -276,28 +233,23 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          ADOPTER APPLICATIONS
-      ========================= */}
+      {/* 404 */}
       <Route
-        path="/applications/adopter"
+        path="*"
         element={
-          <RequireAuth role="adopter">
-            <AdopterApplications
-              darkMode={darkMode}
-              toggleDarkMode={toggleDarkMode}
-            />
-          </RequireAuth>
-        }
-      />
-
-      <Route
-        path="/complaints/adopter"
-        element={
-          <AdopterComplaints
-            darkMode={darkMode}
-            toggleDarkMode={toggleDarkMode}
-          />
+          <div
+            style={{
+              minHeight: "100vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "column",
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
+            <h1>404</h1>
+            <p>Page Not Found</p>
+          </div>
         }
       />
 
