@@ -174,6 +174,9 @@ class ShelterController extends Controller
         $validated = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
             'location'      => ['required', 'string', 'max:255'],
+
+            // ERD attribute. nullable = a shelter may not have written one yet.
+            'description'   => ['nullable', 'string'],
             'contact_email' => ['required', 'email', 'max:255'],
             'contact_phone' => ['required', 'regex:/^(?:\+88|01)?\d{11}$/'],
             'status'        => ['required', 'in:active,pending,inactive'],
@@ -229,12 +232,19 @@ class ShelterController extends Controller
         */
         DB::insert(
             "INSERT INTO shelters
-                (name, location, contact_email, contact_phone, status, admin_id, created_at, updated_at)
+                (name, location, description, contact_email, contact_phone, status, admin_id, created_at, updated_at)
              VALUES
-                (?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
             [
                 $validated['name'],
                 $validated['location'],
+
+                // The order of these values must match the column list above,
+                // one for one. Getting them out of step is the classic raw-SQL
+                // bug: it stores the phone number in the description and MySQL
+                // never complains, because both are text.
+                $validated['description'] ?? null,
+
                 $validated['contact_email'],
                 $validated['contact_phone'],
                 $validated['status'],
@@ -297,6 +307,78 @@ class ShelterController extends Controller
             [$id]
         );
 
+        /*
+        |----------------------------------------------------------------------
+        | THE PETS THAT LIVE HERE
+        |----------------------------------------------------------------------
+        |
+        | The ER diagram's "lives" relationship: pets m—1 shelter.
+        | The foreign key is on pets, so we simply filter by it.
+        */
+        $shelter->pets = DB::select(
+            "SELECT id, name, type, breed, age, gender,
+                    health_status, vaccine_status, status, image, description
+             FROM pets
+             WHERE shelter_id = ?
+             ORDER BY name",
+            [$id]
+        );
+
+        /*
+        |----------------------------------------------------------------------
+        | THE REVIEWS THIS SHELTER RECEIVED
+        |----------------------------------------------------------------------
+        |
+        | The diagram's "receive" relationship: review m—1 shelter.
+        |
+        | We JOIN users so each review shows WHO wrote it instead of a bare
+        | user_id. A plain INNER JOIN is right here - reviews.user_id is
+        | NOT NULL with a foreign key, so every review is guaranteed an author.
+        */
+        $shelter->reviews = DB::select(
+            "SELECT
+                 reviews.id,
+                 reviews.rating,
+                 reviews.comment,
+                 reviews.created_at,
+                 users.id   AS user_id,
+                 users.name AS user_name
+             FROM reviews
+             JOIN users ON users.id = reviews.user_id
+             WHERE reviews.shelter_id = ?
+             ORDER BY reviews.created_at DESC",
+            [$id]
+        );
+
+        /*
+        |----------------------------------------------------------------------
+        | SUMMARY NUMBERS - counted by MySQL, in one query
+        |----------------------------------------------------------------------
+        |
+        | AVG() is an aggregate like COUNT: it returns one value for the whole
+        | set. ROUND(..., 1) keeps the star rating to one decimal.
+        |
+        | AVG over an empty table returns NULL, not 0 - there is no average of
+        | nothing. The frontend checks for that rather than printing "NULL".
+        */
+        $shelter->summary = DB::selectOne(
+            "SELECT
+                 (SELECT COUNT(*) FROM pets  WHERE shelter_id = ?) AS total_pets,
+                 (SELECT COUNT(*) FROM pets  WHERE shelter_id = ? AND status = 'available') AS available_pets,
+                 (SELECT COUNT(*) FROM pets  WHERE shelter_id = ? AND status = 'adopted')   AS adopted_pets,
+                 (SELECT COUNT(*) FROM users WHERE shelter_id = ?) AS total_staff,
+                 (SELECT COUNT(*) FROM reviews WHERE shelter_id = ?) AS total_reviews,
+                 (SELECT ROUND(AVG(rating), 1) FROM reviews WHERE shelter_id = ?) AS average_rating,
+
+                 -- How many adoption applications reached this shelter's pets.
+                 -- applications does not know about shelters, so we have to go
+                 -- through pets: applications -> pets -> this shelter.
+                 (SELECT COUNT(*) FROM applications
+                  JOIN pets ON pets.id = applications.pet_id
+                  WHERE pets.shelter_id = ?) AS total_applications",
+            [$id, $id, $id, $id, $id, $id, $id]
+        );
+
         return response()->json([
             'message' => 'Shelter fetched successfully.',
             'shelter' => $shelter,
@@ -317,6 +399,9 @@ class ShelterController extends Controller
         $validated = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
             'location'      => ['required', 'string', 'max:255'],
+
+            // ERD attribute. nullable = a shelter may not have written one yet.
+            'description'   => ['nullable', 'string'],
             'contact_email' => ['required', 'email', 'max:255'],
             'contact_phone' => ['required', 'regex:/^(?:\+88|01)?\d{11}$/'],
             'status'        => ['required', 'in:active,pending,inactive'],
@@ -372,6 +457,7 @@ class ShelterController extends Controller
             "UPDATE shelters SET
                  name          = ?,
                  location      = ?,
+                 description   = ?,
                  contact_email = ?,
                  contact_phone = ?,
                  status        = ?,
@@ -381,6 +467,7 @@ class ShelterController extends Controller
             [
                 $validated['name'],
                 $validated['location'],
+                $validated['description'] ?? null,
                 $validated['contact_email'],
                 $validated['contact_phone'],
                 $validated['status'],
@@ -389,6 +476,7 @@ class ShelterController extends Controller
                 // which is how the "-- No admin assigned --" option works.
                 $validated['admin_id'] ?? null,
 
+                // The LAST ? is the WHERE, so this value goes last.
                 $id,
             ]
         );
