@@ -232,7 +232,14 @@ export default function AdminShelters() {
         * { margin: 0; padding: 0; box-sizing: border-box;
             font-family: Arial, Helvetica, sans-serif; }
 
-        html, body, #root { width: 100%; min-height: 100%; }
+        html, body, #root {
+          width: 100%;
+          min-height: 100%;
+          /* Set explicitly: the dashboard stylesheet uses overflow:hidden, and
+             without this the page inherits it and refuses to scroll. */
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
 
         .sp-page {
           min-height: 100vh;
@@ -283,7 +290,14 @@ export default function AdminShelters() {
 
         .sp-back:hover { background: rgba(40,105,147,0.18); }
 
-        .sp-container { max-width: 1180px; margin: 0 auto; padding: 26px 22px 0; }
+        .sp-container {
+          /* min() = "whichever is smaller". Wide screens get 1560px;
+             narrow ones fall back to 94% of the viewport instead of
+             overflowing. */
+          max-width: min(1560px, 94vw);
+          margin: 0 auto;
+          padding: 26px 24px 0;
+        }
 
         .sp-heading h2 { font-size: 24px; font-weight: 800; }
         .sp-heading p  { font-size: 13px; color: #64748b; margin-top: 3px; }

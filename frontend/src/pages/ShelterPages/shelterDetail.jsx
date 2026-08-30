@@ -231,7 +231,14 @@ export default function ShelterDetail() {
         * { margin: 0; padding: 0; box-sizing: border-box;
             font-family: Arial, Helvetica, sans-serif; }
 
-        html, body, #root { width: 100%; min-height: 100%; }
+        html, body, #root {
+          width: 100%;
+          min-height: 100%;
+          /* Set explicitly: the dashboard stylesheet uses overflow:hidden, and
+             without this the page inherits it and refuses to scroll. */
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
 
         .sd-page {
           min-height: 100vh;
@@ -276,7 +283,14 @@ export default function ShelterDetail() {
 
         .sd-back:hover { background: rgba(40,105,147,0.18); }
 
-        .sd-container { max-width: 1120px; margin: 0 auto; padding: 24px 22px 0; }
+        .sd-container {
+          /* min() = "whichever is smaller". Wide screens get 1560px;
+             narrow ones fall back to 94% of the viewport instead of
+             overflowing. */
+          max-width: min(1560px, 94vw);
+          margin: 0 auto;
+          padding: 26px 24px 0;
+        }
 
         /* ---- header card ---- */
         .sd-hero {
