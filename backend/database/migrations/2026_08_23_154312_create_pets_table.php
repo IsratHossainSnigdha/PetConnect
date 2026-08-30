@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+   
+    
+     
     public function up(): void
     {
         Schema::create('pets', function (Blueprint $table) {
@@ -16,23 +16,19 @@ return new class extends Migration
 
             // Pet basic information
             $table->string('name');
-            $table->string('type'); // Dog, Cat, etc.
+            $table->string('type');
             $table->string('breed')->nullable();
-            $table->unsignedInteger('age')->nullable();
+            $table->string('age')->nullable();
             $table->string('gender')->nullable();
 
-            // Pet description and image
+            
             $table->text('description')->nullable();
-            $table->string('image')->nullable();
+            $table->text('image')->nullable();
 
-            // Adoption status
-            $table->enum('status', [
-                'available',
-                'pending',
-                'adopted',
-            ])->default('available');
+            // Adoption status 
+            $table->string('status')->default('Available'); 
 
-            // Shelter that currently owns/manages the pet
+            
             $table->foreignId('shelter_id')
                 ->constrained('shelters')
                 ->cascadeOnDelete();
@@ -41,9 +37,9 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+    
+     
+     
     public function down(): void
     {
         Schema::dropIfExists('pets');
