@@ -15,7 +15,6 @@ import {
   Home,
   Users,
   ShieldAlert,
-  Wrench,
   Eye,
   Edit,
   Trash2,
@@ -1405,27 +1404,36 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                 <span className="stat-action" onClick={() => setStatusFilter('pending')}>Review now</span>
               </div>
 
+              {/*
+                TOTAL PETS  (issue #20)
+                    SELECT COUNT(*) FROM pets;
+              */}
+              <div className="stat-card">
+                <div className="stat-icon-wrapper">
+                  <Dog size={20} />
+                </div>
+                <div className="stat-details">
+                  <div className="stat-number">{stats ? stats.total_pets : '...'}</div>
+                  <div className="stat-label">Total Pets</div>
+                </div>
+                <span className="stat-action">Across all shelters</span>
+              </div>
+
+              {/*
+                PENDING COMPLAINTS  (issue #20)
+                    SELECT COUNT(*) FROM complaints WHERE status = 'Pending';
+              */}
               <div className="stat-card">
                 <div className="stat-icon-wrapper">
                   <ShieldAlert size={20} />
                 </div>
                 <div className="stat-details">
-                  {/* NOT EXISTS subquery - shelters with no staff row pointing at them */}
-                  <div className="stat-number">{stats ? stats.unstaffed_shelters : '...'}</div>
-                  <div className="stat-label">Unstaffed Shelters</div>
+                  <div className="stat-number">{stats ? stats.pending_complaints : '...'}</div>
+                  <div className="stat-label">Pending Complaints</div>
                 </div>
-                <span className="stat-action">No linked staff account</span>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon-wrapper">
-                  <Wrench size={20} />
-                </div>
-                <div className="stat-details">
-                  <div className="stat-number">58</div>
-                  <div className="stat-label">Admin Actions</div>
-                </div>
-                <span className="stat-action">View logs</span>
+                <span className="stat-action" onClick={() => setActiveTab('complaints')}>
+                  Review now
+                </span>
               </div>
             </div>
 
