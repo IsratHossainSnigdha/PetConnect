@@ -1267,7 +1267,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
               </button>
               <button 
                 className={`menu-item ${activeTab === 'shelters' ? 'active' : ''}`}
-                onClick={() => setActiveTab('shelters')}
+                onClick={() => navigate('/shelters/admin')}
               >
                 <Building2 size={18} /> Shelters
               </button>
@@ -1375,7 +1375,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                   <div className="stat-number">{stats ? stats.total_shelters : '...'}</div>
                   <div className="stat-label">Total Shelters</div>
                 </div>
-                <span className="stat-action" onClick={() => setActiveTab('shelters')}>View all shelters</span>
+                <span className="stat-action" onClick={() => navigate('/shelters/admin')}>View all shelters</span>
               </div>
 
               <div className="stat-card">
