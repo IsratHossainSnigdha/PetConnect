@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\StatsController;
 // Aliased because Api\ComplaintController (the adopter one) already uses the
 // plain name ComplaintController further down this file.
 use App\Http\Controllers\Admin\ComplaintController as AdminComplaintController;
+use App\Http\Controllers\Admin\ReportController;
 
 use App\Http\Controllers\Adopter\AdopterDashboardController;
 use App\Http\Controllers\Api\ComplaintController;
@@ -182,6 +183,12 @@ Route::middleware([
     Route::get('/admin/admins', [
         ShelterController::class,
         'admins'
+    ]);
+
+    // Admin reports (issue #42)
+    Route::get('/admin/reports', [
+        ReportController::class,
+        'index'
     ]);
 
     // Admin complaints review (issue #41)

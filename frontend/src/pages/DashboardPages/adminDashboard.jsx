@@ -1279,7 +1279,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
               </button>
               <button 
                 className={`menu-item ${activeTab === 'reports' ? 'active' : ''}`}
-                onClick={() => setActiveTab('reports')}
+                onClick={() => navigate('/reports/admin')}
               >
                 <BarChart3 size={18} /> Reports
               </button>

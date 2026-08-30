@@ -33,6 +33,9 @@ import AdopterApplications from "./pages/ApplicationPages/adopterApplications";
 // Admin Complaints (issue #41)
 import AdminComplaints from "./pages/ComplaintPages/adminComplaints";
 
+// Admin Reports (issue #42)
+import AdminReports from "./pages/ReportPages/adminReports";
+
 // Shelter Pages (issue #35)
 import AdminShelters from "./pages/ShelterPages/adminShelters";
 
@@ -251,6 +254,21 @@ export default function App() {
         element={
           <RequireAuth role="platform_admin">
             <AdminComplaints
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          ADMIN REPORTS  (issue #42)
+      ========================= */}
+      <Route
+        path="/reports/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminReports
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
