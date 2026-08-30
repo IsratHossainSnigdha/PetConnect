@@ -1273,7 +1273,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
               </button>
               <button 
                 className={`menu-item ${activeTab === 'complaints' ? 'active' : ''}`}
-                onClick={() => setActiveTab('complaints')}
+                onClick={() => navigate('/complaints/admin')}
               >
                 <Flag size={18} /> Complaints
               </button>
@@ -1431,7 +1431,7 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                   <div className="stat-number">{stats ? stats.pending_complaints : '...'}</div>
                   <div className="stat-label">Pending Complaints</div>
                 </div>
-                <span className="stat-action" onClick={() => setActiveTab('complaints')}>
+                <span className="stat-action" onClick={() => navigate('/complaints/admin')}>
                   Review now
                 </span>
               </div>

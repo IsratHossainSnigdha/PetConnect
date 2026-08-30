@@ -30,6 +30,9 @@ import ShelterProfile from "./pages/ProfilePages/shelterProfile";
 // Application Pages
 import AdopterApplications from "./pages/ApplicationPages/adopterApplications";
 
+// Admin Complaints (issue #41)
+import AdminComplaints from "./pages/ComplaintPages/adminComplaints";
+
 // Shelter Pages (issue #35)
 import AdminShelters from "./pages/ShelterPages/adminShelters";
 
@@ -233,6 +236,21 @@ export default function App() {
         element={
           <RequireAuth role="platform_admin">
             <AdminShelters
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          ADMIN COMPLAINTS  (issue #41)
+      ========================= */}
+      <Route
+        path="/complaints/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminComplaints
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
