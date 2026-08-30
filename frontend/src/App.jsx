@@ -30,6 +30,15 @@ import ShelterProfile from "./pages/ProfilePages/shelterProfile";
 // Application Pages
 import AdopterApplications from "./pages/ApplicationPages/adopterApplications";
 
+// Admin Complaints (issue #41)
+import AdminComplaints from "./pages/ComplaintPages/adminComplaints";
+
+// Admin Reports (issue #42)
+import AdminReports from "./pages/ReportPages/adminReports";
+
+// Shelter Pages (issue #35)
+import AdminShelters from "./pages/ShelterPages/adminShelters";
+
 // Complaint Pages
 import AdopterComplaints from "./pages/ComplaintPages/adopterComplaints";
 
@@ -215,6 +224,51 @@ export default function App() {
         element={
           <RequireAuth role="shelter_staff">
             <ShelterProfile
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          SHELTER MANAGEMENT  (issue #35)
+      ========================= */}
+      <Route
+        path="/shelters/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminShelters
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          ADMIN COMPLAINTS  (issue #41)
+      ========================= */}
+      <Route
+        path="/complaints/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminComplaints
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          ADMIN REPORTS  (issue #42)
+      ========================= */}
+      <Route
+        path="/reports/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminReports
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />

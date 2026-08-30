@@ -7,85 +7,105 @@ use Illuminate\Support\Facades\DB;
 
 /*
 |==============================================================================
-| STATS CONTROLLER  -  the numbers on the admin dashboard cards
+| DASHBOARD STATISTICS  ->  GET /api/admin/stats        (issue #20)
 |==============================================================================
 |
-| Written in raw SQL. The one idea this file demonstrates is:
+| THE ONE IDEA IN THIS FILE
 |
-|     >> make the DATABASE do the counting, not PHP <<
+|     >> let the DATABASE do the counting, not PHP <<
 |
-| The tempting way is to fetch every row and count the array in PHP. With
-| 50,000 users that drags 50,000 rows across the network to produce a single
-| number. The correct way asks MySQL for the number and transfers one value:
+| The tempting way is to fetch every row and count the array:
 |
-|     SELECT COUNT(*) FROM users;
+|     $pets  = SELECT * FROM pets;     <- drags every row across the network
+|     $total = count($pets);           <- then counts them in PHP
 |
-| COUNT is an AGGREGATE function. SUM, AVG, MIN and MAX all work the same way:
-| the arithmetic happens where the data already lives.
+| With 50,000 pets that transfers 50,000 rows to produce ONE number.
+| The correct way asks MySQL for the number and transfers one value:
+|
+|     SELECT COUNT(*) FROM pets;
+|
+| COUNT() is an AGGREGATE function - so are SUM, AVG, MIN and MAX. They all
+| work the same way: the arithmetic happens where the data already lives.
 |
 */
 class StatsController extends Controller
 {
-    /**
-     * GET /api/admin/stats
-     */
     public function index()
     {
         /*
-        | selectOne() returns a single row, so we can read ->total straight off
-        | it. "AS total" names the result column - without it the column would
-        | literally be called "COUNT(*)", which is awkward to read in PHP.
+        |----------------------------------------------------------------------
+        | ALL THE HEADLINE NUMBERS IN ONE QUERY
+        |----------------------------------------------------------------------
+        |
+        | Each line in the SELECT is a small SELECT of its own, in brackets.
+        | A query inside a query is called a SUBQUERY.
+        |
+        | Doing it this way means ONE trip to the database instead of five.
+        | Every round trip costs time, so five separate COUNT queries would be
+        | five times the waiting for exactly the same answers.
+        |
+        | Each subquery must return exactly ONE value - one row, one column -
+        | which COUNT(*) always does.
+        |
+        | The result is a single row that looks like:
+        |
+        |     total_shelters | total_pets | pending_complaints | ...
+        |     3              | 6          | 0                  | ...
         */
-        $totalShelters = DB::selectOne(
-            "SELECT COUNT(*) AS total FROM shelters"
-        )->total;
+        $counts = DB::selectOne(
+            "SELECT
+                 (SELECT COUNT(*) FROM shelters) AS total_shelters,
 
-        $totalUsers = DB::selectOne(
-            "SELECT COUNT(*) AS total FROM users"
-        )->total;
+                 (SELECT COUNT(*) FROM pets)     AS total_pets,
+
+                 -- WHERE goes INSIDE the brackets, so it applies only to this
+                 -- count. Note the capital P: the complaints.status column is
+                 -- an ENUM('Pending','Resolved','Rejected'), and the value has
+                 -- to match exactly.
+                 (SELECT COUNT(*) FROM complaints WHERE status = 'Pending')
+                     AS pending_complaints,
+
+                 (SELECT COUNT(*) FROM users)    AS total_users,
+
+                 (SELECT COUNT(*) FROM applications) AS total_applications"
+        );
 
         /*
         |----------------------------------------------------------------------
-        | GROUP BY - counting each category in ONE query
+        | A BREAKDOWN PER CATEGORY, ALSO IN ONE QUERY
         |----------------------------------------------------------------------
         |
-        | We need the shelter count per status. The naive way is three separate
-        | queries (one per status). GROUP BY does all of it at once:
+        | We want the shelter count for EACH status. Three separate queries
+        | would work, but GROUP BY does the whole job at once:
         |
         |     SELECT status, COUNT(*) AS total
         |     FROM shelters
         |     GROUP BY status;
         |
-        | GROUP BY collapses every row sharing the same status into ONE output
+        | GROUP BY collapses all rows sharing the same status into ONE output
         | row, and COUNT tells us how many were collapsed:
         |
         |     active   | 3
         |     pending  | 1
         |     inactive | 1
         |
-        | Rule to remember: every column in the SELECT must either appear in
-        | the GROUP BY, or be wrapped in an aggregate function like COUNT.
-        |
-        | This query is the reason the migration put an index on `status`.
+        | The rule to remember: every column in the SELECT must either appear
+        | in the GROUP BY, or be wrapped in an aggregate function like COUNT.
         */
         $shelterRows = DB::select(
-            "SELECT status, COUNT(*) AS total
-             FROM shelters
-             GROUP BY status"
+            "SELECT status, COUNT(*) AS total FROM shelters GROUP BY status"
         );
 
-        // Reshape the rows into ['active' => 3, 'pending' => 1, ...] so we can
-        // look each one up by name below.
+        // Reshape the rows into ['active' => 3, 'pending' => 1] so we can look
+        // each one up by name below.
         $byStatus = [];
         foreach ($shelterRows as $row) {
             $byStatus[$row->status] = $row->total;
         }
 
-        // The same trick over the users table, grouped by the `role` column.
+        // The same idea over the users table, grouped by the `role` column.
         $roleRows = DB::select(
-            "SELECT role, COUNT(*) AS total
-             FROM users
-             GROUP BY role"
+            "SELECT role, COUNT(*) AS total FROM users GROUP BY role"
         );
 
         $byRole = [];
@@ -94,47 +114,31 @@ class StatsController extends Controller
         }
 
         /*
-        |----------------------------------------------------------------------
-        | NOT EXISTS - "rows in A with no matching row in B"
-        |----------------------------------------------------------------------
+        | ?? 0 means "if that key is missing, use 0 instead".
         |
-        | A shelter with no staff account attached yet.
-        |
-        |     SELECT COUNT(*) FROM shelters
-        |     WHERE NOT EXISTS (
-        |         SELECT 1 FROM users WHERE users.shelter_id = shelters.id
-        |     );
-        |
-        | The inner query is a SUBQUERY - a query inside a query. For each
-        | shelter, MySQL asks "is there any user pointing at me?" and NOT
-        | EXISTS keeps only the shelters where the answer is no.
-        |
-        | "SELECT 1" looks odd but is deliberate: EXISTS only cares WHETHER a
-        | row was found, never what is in it, so we do not waste effort
-        | fetching real columns.
+        | It matters: GROUP BY only returns rows for statuses that actually
+        | EXIST. If no shelter is inactive, there is no 'inactive' row at all,
+        | and reading it without ?? would be an error rather than showing 0.
         */
-        $unstaffed = DB::selectOne(
-            "SELECT COUNT(*) AS total
-             FROM shelters
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM users WHERE users.shelter_id = shelters.id
-             )"
-        )->total;
-
         return response()->json([
             'message' => 'Statistics fetched successfully.',
             'stats'   => [
-                'total_shelters'    => $totalShelters,
-                'active_shelters'   => $byStatus['active']   ?? 0,
-                'pending_shelters'  => $byStatus['pending']  ?? 0,
-                'inactive_shelters' => $byStatus['inactive'] ?? 0,
+                // --- issue #20: the three the dashboard cards need ---
+                'total_shelters'     => $counts->total_shelters,
+                'total_pets'         => $counts->total_pets,
+                'pending_complaints' => $counts->pending_complaints,
 
-                'total_users'       => $totalUsers,
-                'total_adopters'    => $byRole['adopter']        ?? 0,
-                'total_staff'       => $byRole['shelter_staff']  ?? 0,
-                'total_admins'      => $byRole['platform_admin'] ?? 0,
+                // --- extra numbers the dashboard already showed ---
+                'total_users'        => $counts->total_users,
+                'total_applications' => $counts->total_applications,
 
-                'unstaffed_shelters' => $unstaffed,
+                'active_shelters'    => $byStatus['active']   ?? 0,
+                'pending_shelters'   => $byStatus['pending']  ?? 0,
+                'inactive_shelters'  => $byStatus['inactive'] ?? 0,
+
+                'total_adopters'     => $byRole['adopter']        ?? 0,
+                'total_staff'        => $byRole['shelter_staff']  ?? 0,
+                'total_admins'       => $byRole['platform_admin'] ?? 0,
             ],
         ]);
     }
