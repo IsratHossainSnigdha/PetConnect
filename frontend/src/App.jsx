@@ -16,30 +16,31 @@ import AdopterSignup from "./pages/SignupPages/adopterSignup";
 import ShelterSignup from "./pages/SignupPages/shelterSignup";
 import AdminSignup from "./pages/SignupPages/adminSignup";
 
-// Dashboards & Add Pet / Manage Pets
+// Dashboards & Pet Management
 import AdopterDashboard from "./pages/DashboardPages/adopterDashboard";
 import ShelterDashboard from "./pages/DashboardPages/shelterDashboard";
+import AdminDashboard from "./pages/DashboardPages/adminDashboard";
 import AddPet from "./pages/DashboardPages/AddPet";
 import ManagePets from "./pages/DashboardPages/ManagePets";
 
-// My Profile Page
+// Profile Page
 import MyProfile from "./pages/DashboardPages/MyProfile";
+import AdminProfile from "./pages/ProfilePages/adminProfile";
 
 // Application Pages
 import AdopterApplications from "./pages/ApplicationPages/adopterApplications";
 
-// Admin Complaints (issue #41)
-import AdminComplaints from "./pages/ComplaintPages/adminComplaints";
-
-// Admin Reports (issue #42)
-import AdminReports from "./pages/ReportPages/adminReports";
-
-// Shelter Pages (issue #35)
-import AdminShelters from "./pages/ShelterPages/adminShelters";
-import ShelterDetail from "./pages/ShelterPages/shelterDetail";
-
 // Complaint Pages
 import AdopterComplaints from "./pages/ComplaintPages/adopterComplaints";
+import AdminComplaints from "./pages/ComplaintPages/adminComplaints";
+
+// Report Pages
+import AdminReports from "./pages/ReportPages/adminReports";
+
+// Shelter Pages
+import AdminShelters from "./pages/ShelterPages/adminShelters";
+import ShelterDetail from "./pages/ShelterPages/shelterDetail";
+import AdopterProfile from "./pages/ProfilePages/adopterProfile";
 
 export default function App() {
   // ================================
@@ -82,47 +83,40 @@ export default function App() {
   useEffect(() => {
     if (user) {
       localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
     }
   }, [user]);
 
   return (
     <Routes>
+      {/* =========================
+          LANDING PAGE
+      ========================= */}
+      <Route path="/" element={<LandingPage />} />
 
-      {/* LANDING */}
-      <Route
-        path="/"
-        element={<LandingPage />}
-      />
+      {/* =========================
+          LOGIN
+      ========================= */}
+      <Route path="/login" element={<LoginPage setUser={setUser} />} />
 
-      {/* LOGIN */}
-      <Route
-        path="/login"
-        element={
-          <LoginPage setUser={setUser} />
-        }
-      />
+      {/* =========================
+          SIGNUP
+      ========================= */}
+      <Route path="/signup" element={<GlobalSignup />} />
 
-      {/* SIGNUP */}
-      <Route
-        path="/signup"
-        element={<GlobalSignup />}
-      />
-      <Route
-        path="/signup/adopter"
-        element={<AdopterSignup />}
-      />
-      <Route
-        path="/signup/shelter"
-        element={<ShelterSignup />}
-      />
-      <Route
-        path="/signup/staff"
-        element={<ShelterSignup />}
-      />
-      <Route
-        path="/signup/admin"
-        element={<AdminSignup />}
-      />
+      <Route path="/signup/adopter" element={<AdopterSignup />} />
+
+      <Route path="/signup/shelter" element={<ShelterSignup />} />
+
+      {/* STAFF SIGNUP */}
+      <Route path="/signup/staff" element={<ShelterSignup />} />
+
+      <Route path="/signup/admin" element={<AdminSignup />} />
+
+      {/* =========================
+          ADOPTER ROUTES
+      ========================= */}
 
       {/* ADOPTER DASHBOARD */}
       <Route
@@ -137,6 +131,48 @@ export default function App() {
         }
       />
 
+      {/* ADOPTER APPLICATIONS */}
+      <Route
+        path="/applications/adopter"
+        element={
+          <RequireAuth>
+            <AdopterApplications
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* ADOPTER COMPLAINTS */}
+      <Route
+        path="/complaints/adopter"
+        element={
+          <RequireAuth>
+            <AdopterComplaints
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/profile/adopter"
+        element={
+          <RequireAuth>
+            <AdopterProfile
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          SHELTER ROUTES
+      ========================= */}
+
       {/* SHELTER DASHBOARD */}
       <Route
         path="/dashboard/shelter"
@@ -150,7 +186,7 @@ export default function App() {
         }
       />
 
-      {/* ADD PET ROUTE */}
+      {/* ADD PET */}
       <Route
         path="/dashboard/shelter/add-pet"
         element={
@@ -163,7 +199,7 @@ export default function App() {
         }
       />
 
-      {/* MANAGE PETS ROUTE */}
+      {/* MANAGE PETS */}
       <Route
         path="/dashboard/shelter/manage-pets"
         element={
@@ -176,7 +212,7 @@ export default function App() {
         }
       />
 
-      {/* MY PROFILE ROUTE */}
+      {/* SHELTER PROFILE */}
       <Route
         path="/profile/shelter"
         element={
@@ -190,8 +226,36 @@ export default function App() {
       />
 
       {/* =========================
-          SHELTER MANAGEMENT  (issue #35)
+          ADMIN ROUTES
       ========================= */}
+
+      {/* ADMIN DASHBOARD */}
+      <Route
+        path="/dashboard/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <AdminDashboard
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* ADMIN PROFILE */}
+      <Route
+        path="/profile/admin"
+        element={
+          <RequireAuth role="platform_admin">
+            <MyProfile
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* ADMIN SHELTER MANAGEMENT */}
       <Route
         path="/shelters/admin"
         element={
@@ -204,15 +268,7 @@ export default function App() {
         }
       />
 
-      {/*
-        ONE SHELTER'S OWN PAGE.
-
-        ":id" is a URL PARAMETER - it matches any value, and the page reads it
-        with useParams(). /shelters/admin/7 shows shelter 7.
-
-        This route is listed AFTER /shelters/admin so the fixed path is matched
-        first and never swallowed by the parameter.
-      */}
+      {/* SHELTER DETAILS */}
       <Route
         path="/shelters/admin/:id"
         element={
@@ -225,9 +281,7 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          ADMIN COMPLAINTS  (issue #41)
-      ========================= */}
+      {/* ADMIN COMPLAINTS */}
       <Route
         path="/complaints/admin"
         element={
@@ -240,9 +294,7 @@ export default function App() {
         }
       />
 
-      {/* =========================
-          ADMIN REPORTS  (issue #42)
-      ========================= */}
+      {/* ADMIN REPORTS */}
       <Route
         path="/reports/admin"
         element={
@@ -255,7 +307,9 @@ export default function App() {
         }
       />
 
-      {/* 404 */}
+      {/* =========================
+          404 PAGE
+      ========================= */}
       <Route
         path="*"
         element={
@@ -274,7 +328,6 @@ export default function App() {
           </div>
         }
       />
-
     </Routes>
   );
 }

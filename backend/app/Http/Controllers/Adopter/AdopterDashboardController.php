@@ -16,96 +16,173 @@ class AdopterDashboardController extends Controller
     {
         $user = $request->user();
 
-        // Only adopters can access this dashboard.
+        /*
+        |--------------------------------------------------------------------------
+        | ROLE CHECK
+        |--------------------------------------------------------------------------
+        */
+
         if ($user->role !== 'adopter') {
             return response()->json([
                 'message' => 'Unauthorized. Adopter access required.',
             ], 403);
         }
 
-        /*
-         * ==========================================
-         * APPLICATION STATISTICS
-         * ==========================================
-         *
-         * Basic SQL COUNT() is used here.
-         *
-         * The count is calculated only for the
-         * currently authenticated adopter.
-         */
-
-        $totalApplications = DB::table('applications')
-            ->where('adopter_id', $user->id)
-            ->count();
-
-        $pendingApplications = DB::table('applications')
-            ->where('adopter_id', $user->id)
-            ->where('status', 'pending')
-            ->count();
-
-        $approvedApplications = DB::table('applications')
-            ->where('adopter_id', $user->id)
-            ->where('status', 'approved')
-            ->count();
-
-        $rejectedApplications = DB::table('applications')
-            ->where('adopter_id', $user->id)
-            ->where('status', 'rejected')
-            ->count();
-
 
         /*
-         * ==========================================
-         * APPLICATION LIST
-         * ==========================================
-         */
+        |--------------------------------------------------------------------------
+        | APPLICATION STATISTICS
+        |--------------------------------------------------------------------------
+        |
+        | Using basic SQL COUNT queries.
+        |
+        */
 
-        $applications = $user->applications()
-            ->with([
-                'pet.shelter',
-            ])
-            ->latest()
-            ->get();
+        $totalResult = DB::select(
+            "
+            SELECT COUNT(*) AS total
+            FROM applications
+            WHERE adopter_id = ?
+            ",
+            [$user->id]
+        );
+
+        $totalApplications = $totalResult[0]->total;
+
+
+        $pendingResult = DB::select(
+            "
+            SELECT COUNT(*) AS total
+            FROM applications
+            WHERE adopter_id = ?
+            AND status = ?
+            ",
+            [$user->id, 'pending']
+        );
+
+        $pendingApplications = $pendingResult[0]->total;
+
+
+        $approvedResult = DB::select(
+            "
+            SELECT COUNT(*) AS total
+            FROM applications
+            WHERE adopter_id = ?
+            AND status = ?
+            ",
+            [$user->id, 'approved']
+        );
+
+        $approvedApplications = $approvedResult[0]->total;
+
+
+        $rejectedResult = DB::select(
+            "
+            SELECT COUNT(*) AS total
+            FROM applications
+            WHERE adopter_id = ?
+            AND status = ?
+            ",
+            [$user->id, 'rejected']
+        );
+
+        $rejectedApplications = $rejectedResult[0]->total;
 
 
         /*
-         * ==========================================
-         * FORMAT APPLICATIONS
-         * ==========================================
-         */
+        |--------------------------------------------------------------------------
+        | APPLICATION LIST
+        |--------------------------------------------------------------------------
+        |
+        | Raw SQL JOIN query.
+        |
+        | applications
+        |       ↓
+        |      pets
+        |       ↓
+        |    shelters
+        |
+        */
 
-        $formattedApplications = $applications->map(function ($application) {
+        $applications = DB::select(
+            "
+            SELECT
+                applications.id,
+                applications.status,
+                applications.created_at,
+
+                pets.name AS pet_name,
+                pets.type AS pet_type,
+
+                shelters.name AS shelter_name
+
+            FROM applications
+
+            LEFT JOIN pets
+                ON applications.pet_id = pets.id
+
+            LEFT JOIN shelters
+                ON pets.shelter_id = shelters.id
+
+            WHERE applications.adopter_id = ?
+
+            ORDER BY applications.created_at DESC
+            ",
+            [$user->id]
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FORMAT APPLICATION DATA
+        |--------------------------------------------------------------------------
+        */
+
+        $formattedApplications = collect($applications)->map(function ($application) {
+
             return [
                 'id' => $application->id,
 
-                'petName' => $application->pet?->name,
+                'petName' => $application->pet_name,
 
-                'petType' => $application->pet?->type,
+                'petType' => $application->pet_type,
 
                 'status' => ucfirst($application->status),
 
-                'shelter' => $application->pet?->shelter?->name,
+                'shelter' => $application->shelter_name,
 
-                'date' => $application->created_at?->format('M d, Y'),
+                'date' => $application->created_at
+                    ? \Carbon\Carbon::parse(
+                        $application->created_at
+                    )->format('M d, Y')
+                    : null,
             ];
-        });
+
+        })->values();
 
 
         /*
-         * ==========================================
-         * API RESPONSE
-         * ==========================================
-         */
+        |--------------------------------------------------------------------------
+        | API RESPONSE
+        |--------------------------------------------------------------------------
+        */
 
         return response()->json([
+
             'stats' => [
+
                 'total' => $totalApplications,
+
                 'pending' => $pendingApplications,
+
                 'approved' => $approvedApplications,
+
                 'rejected' => $rejectedApplications,
+
             ],
 
             'applications' => $formattedApplications,
+
         ]);
     }
 }
