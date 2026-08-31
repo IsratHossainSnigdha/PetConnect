@@ -11,7 +11,6 @@ import {
   Edit,
   Trash2,
   X,
-  Users,
   CheckCircle,
   Clock,
   XCircle,
@@ -19,7 +18,6 @@ import {
 
 import {
   fetchShelters,
-  fetchShelter,
   createShelter,
   updateShelter,
   deleteShelter,
@@ -53,6 +51,7 @@ import {
 const EMPTY_FORM = {
   name: '',
   location: '',
+  description: '',
   contact_email: '',
   contact_phone: '',
   status: 'pending',
@@ -78,8 +77,7 @@ export default function AdminShelters() {
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
-  // --- the view popup, and the admin dropdown -------------------------------
-  const [viewing, setViewing] = useState(null);
+  // The admin list for the "Assigned Admin" dropdown
   const [admins, setAdmins] = useState([]);
 
   /*
@@ -143,6 +141,7 @@ export default function AdminShelters() {
     setForm({
       name: shelter.name,
       location: shelter.location,
+      description: shelter.description ?? '',
       contact_email: shelter.contact_email,
       contact_phone: shelter.contact_phone,
       status: shelter.status,
@@ -220,15 +219,6 @@ export default function AdminShelters() {
     }
   };
 
-  const handleView = async (shelter) => {
-    try {
-      const data = await fetchShelter(shelter.id);
-      setViewing(data.shelter);
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
   /*
   | Small counters for the summary strip. These are counted in JavaScript
   | rather than SQL on purpose: the rows are already here, so asking the
@@ -242,7 +232,14 @@ export default function AdminShelters() {
         * { margin: 0; padding: 0; box-sizing: border-box;
             font-family: Arial, Helvetica, sans-serif; }
 
-        html, body, #root { width: 100%; min-height: 100%; }
+        html, body, #root {
+          width: 100%;
+          min-height: 100%;
+          /* Set explicitly: the dashboard stylesheet uses overflow:hidden, and
+             without this the page inherits it and refuses to scroll. */
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
 
         .sp-page {
           min-height: 100vh;
@@ -293,7 +290,14 @@ export default function AdminShelters() {
 
         .sp-back:hover { background: rgba(40,105,147,0.18); }
 
-        .sp-container { max-width: 1180px; margin: 0 auto; padding: 26px 22px 0; }
+        .sp-container {
+          /* min() = "whichever is smaller". Wide screens get 1560px;
+             narrow ones fall back to 94% of the viewport instead of
+             overflowing. */
+          max-width: min(1560px, 94vw);
+          margin: 0 auto;
+          padding: 26px 24px 0;
+        }
 
         .sp-heading h2 { font-size: 24px; font-weight: 800; }
         .sp-heading p  { font-size: 13px; color: #64748b; margin-top: 3px; }
@@ -651,7 +655,14 @@ export default function AdminShelters() {
                     <tr key={shelter.id}>
                       <td>SLT{String(shelter.id).padStart(3, '0')}</td>
 
-                      <td><strong>{shelter.name}</strong></td>
+                      <td>
+                        <strong
+                          style={{ cursor: 'pointer', color: '#286993' }}
+                          onClick={() => navigate(`/shelters/admin/${shelter.id}`)}
+                        >
+                          {shelter.name}
+                        </strong>
+                      </td>
 
                       <td>{shelter.location}</td>
 
@@ -687,7 +698,12 @@ export default function AdminShelters() {
 
                       <td>
                         <div className="sp-actions">
-                          <button className="sp-icon-btn" title="View" onClick={() => handleView(shelter)}>
+                          {/* Opens that shelter's own page (its pets, staff, reviews) */}
+                          <button
+                            className="sp-icon-btn"
+                            title="Open shelter page"
+                            onClick={() => navigate(`/shelters/admin/${shelter.id}`)}
+                          >
                             <Eye size={14} />
                           </button>
                           <button className="sp-icon-btn" title="Edit" onClick={() => openEdit(shelter)}>
@@ -743,6 +759,29 @@ export default function AdminShelters() {
                   className={formErrors.location ? 'bad' : ''} placeholder="Dhaka, Bangladesh"
                 />
                 {formErrors.location && <div className="sp-err">{formErrors.location[0]}</div>}
+              </div>
+
+              {/* ERD attribute `description`. Nullable, so it can be left blank. */}
+              <div className="sp-field">
+                <label>Description <span className="sp-hint">- column: description (optional)</span></label>
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder="What this shelter does, who it helps..."
+                  style={{
+                    width: '100%',
+                    border: '1px solid rgba(40,105,147,0.25)',
+                    borderRadius: '8px',
+                    padding: '9px 11px',
+                    fontSize: '13px',
+                    color: '#102c45',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                  }}
+                />
               </div>
 
               <div className="sp-field">
@@ -812,71 +851,9 @@ export default function AdminShelters() {
         </div>
       )}
 
-      {/* ---------------- VIEW PANEL ---------------- */}
-      {viewing && (
-        <div className="sp-backdrop">
-          <div className="sp-modal">
+      {/* The old view modal is gone - the Eye button now opens the
+          shelter's own page at /shelters/admin/:id instead. */}
 
-            <div className="sp-modal-head">
-              <div>
-                <h3>{viewing.name}</h3>
-                <p>Row id {viewing.id} of the shelters table</p>
-              </div>
-              <button className="sp-close" onClick={() => setViewing(null)}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="sp-view-row"><span>Location</span><span>{viewing.location}</span></div>
-            <div className="sp-view-row"><span>Contact email</span><span>{viewing.contact_email}</span></div>
-            <div className="sp-view-row"><span>Contact phone</span><span>{viewing.contact_phone}</span></div>
-
-            <div className="sp-view-row">
-              <span>Assigned admin</span>
-              <span>
-                {viewing.admin_name
-                  ? `${viewing.admin_name} (${viewing.admin_email})`
-                  : 'Not assigned'}
-              </span>
-            </div>
-
-            <div className="sp-view-row">
-              <span>Status</span>
-              <span><span className={`sp-badge ${viewing.status}`}>{viewing.status}</span></span>
-            </div>
-
-            <div className="sp-view-row">
-              <span>Created</span>
-              <span>{new Date(viewing.created_at).toLocaleString()}</span>
-            </div>
-
-            <div className="sp-section-title">
-              <Users size={13} style={{ verticalAlign: '-2px' }} />{' '}
-              Staff working here ({viewing.staff?.length ?? 0})
-            </div>
-
-            {/* SELECT id, name, email FROM users WHERE shelter_id = <this id> */}
-            {viewing.staff && viewing.staff.length > 0 ? (
-              viewing.staff.map((member) => (
-                <div className="sp-view-row" key={member.id}>
-                  <span>{member.name}</span>
-                  <span>{member.email}</span>
-                </div>
-              ))
-            ) : (
-              <div className="sp-msg" style={{ padding: '10px 0', textAlign: 'left' }}>
-                No user rows have shelter_id = {viewing.id} yet.
-              </div>
-            )}
-
-            <div className="sp-modal-actions">
-              <button type="button" className="sp-cancel" onClick={() => setViewing(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

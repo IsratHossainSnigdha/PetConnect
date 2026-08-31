@@ -153,7 +153,14 @@ export default function AdminReports() {
         * { margin: 0; padding: 0; box-sizing: border-box;
             font-family: Arial, Helvetica, sans-serif; }
 
-        html, body, #root { width: 100%; min-height: 100%; }
+        html, body, #root {
+          width: 100%;
+          min-height: 100%;
+          /* Set explicitly: the dashboard stylesheet uses overflow:hidden, and
+             without this the page inherits it and refuses to scroll. */
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
 
         .rp-page {
           min-height: 100vh;
@@ -200,7 +207,14 @@ export default function AdminReports() {
 
         .rp-back:hover, .rp-refresh:hover { background: rgba(40,105,147,0.18); }
 
-        .rp-container { max-width: 1180px; margin: 0 auto; padding: 26px 22px 0; }
+        .rp-container {
+          /* min() = "whichever is smaller". Wide screens get 1560px;
+             narrow ones fall back to 94% of the viewport instead of
+             overflowing. */
+          max-width: min(1560px, 94vw);
+          margin: 0 auto;
+          padding: 26px 24px 0;
+        }
 
         .rp-heading h2 { font-size: 24px; font-weight: 800; }
         .rp-heading p  { font-size: 13px; color: #64748b; margin-top: 3px; }
@@ -208,7 +222,7 @@ export default function AdminReports() {
         /* ---- stat tiles: a headline number needs no chart ---- */
         .rp-tiles {
           display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 14px; margin: 20px 0 24px;
+          gap: 15px; margin: 22px 0 26px;
         }
 
         .rp-tile {
@@ -229,7 +243,7 @@ export default function AdminReports() {
 
         /* ---- report cards ---- */
         .rp-grid {
-          display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+          display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
           gap: 16px;
         }
 
@@ -249,13 +263,24 @@ export default function AdminReports() {
 
         /* ---- bar rows ---- */
         .rp-bar-row {
-          display: grid; grid-template-columns: 150px 1fr 42px;
-          align-items: center; gap: 11px; margin-bottom: 9px;
+          display: grid;
+          /* minmax lets the label column grow up to 230px on a wide card and
+             shrink on a narrow one. The old fixed 150px is what cut
+             "Safe Haven Animal Shelter" off with an ellipsis. */
+          grid-template-columns: minmax(120px, 230px) 1fr 46px;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 10px;
         }
 
         .rp-bar-label {
-          font-size: 12px; font-weight: 600;
-          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-size: 12.5px;
+          font-weight: 600;
+          line-height: 1.35;
+          /* Wrap a long name onto a second line instead of truncating it.
+             overflow-wrap: anywhere also breaks a single very long word,
+             which the default would let spill out of the column. */
+          overflow-wrap: anywhere;
         }
 
         .rp-bar-sub {

@@ -36,6 +36,7 @@ import AdminReports from "./pages/ReportPages/adminReports";
 
 // Shelter Pages (issue #35)
 import AdminShelters from "./pages/ShelterPages/adminShelters";
+import ShelterDetail from "./pages/ShelterPages/shelterDetail";
 
 // Complaint Pages
 import AdopterComplaints from "./pages/ComplaintPages/adopterComplaints";
@@ -196,6 +197,27 @@ export default function App() {
         element={
           <RequireAuth role="platform_admin">
             <AdminShelters
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/*
+        ONE SHELTER'S OWN PAGE.
+
+        ":id" is a URL PARAMETER - it matches any value, and the page reads it
+        with useParams(). /shelters/admin/7 shows shelter 7.
+
+        This route is listed AFTER /shelters/admin so the fixed path is matched
+        first and never swallowed by the parameter.
+      */}
+      <Route
+        path="/shelters/admin/:id"
+        element={
+          <RequireAuth role="platform_admin">
+            <ShelterDetail
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />

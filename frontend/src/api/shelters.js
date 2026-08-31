@@ -113,3 +113,40 @@ export async function fetchStats() {
 export async function fetchAdmins() {
   return apiFetch('/admin/admins');
 }
+
+/*
+|------------------------------------------------------------------------------
+| ONE SHELTER'S PETS
+|------------------------------------------------------------------------------
+|
+| These are NESTED under the shelter, so the URL names the shelter the pet
+| belongs to. That is the ER diagram's "lives" relationship expressed as a URL.
+*/
+
+/** GET /api/admin/shelters/{id}/pets */
+export async function fetchShelterPets(shelterId) {
+  return apiFetch(`/admin/shelters/${shelterId}/pets`);
+}
+
+/** POST /api/admin/shelters/{id}/pets  ->  INSERT INTO pets ... */
+export async function createShelterPet(shelterId, pet) {
+  return apiFetch(`/admin/shelters/${shelterId}/pets`, {
+    method: 'POST',
+    body: JSON.stringify(pet),
+  });
+}
+
+/** PUT /api/admin/shelters/{id}/pets/{petId}  ->  UPDATE pets ... */
+export async function updateShelterPet(shelterId, petId, pet) {
+  return apiFetch(`/admin/shelters/${shelterId}/pets/${petId}`, {
+    method: 'PUT',
+    body: JSON.stringify(pet),
+  });
+}
+
+/** DELETE /api/admin/shelters/{id}/pets/{petId}  ->  DELETE FROM pets ... */
+export async function deleteShelterPet(shelterId, petId) {
+  return apiFetch(`/admin/shelters/${shelterId}/pets/${petId}`, {
+    method: 'DELETE',
+  });
+}

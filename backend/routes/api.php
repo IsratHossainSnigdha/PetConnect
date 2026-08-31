@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\StatsController;
 // plain name ComplaintController further down this file.
 use App\Http\Controllers\Admin\ComplaintController as AdminComplaintController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\ShelterPetController;
 
 use App\Http\Controllers\Adopter\AdopterDashboardController;
 use App\Http\Controllers\Api\ComplaintController;
@@ -130,6 +131,40 @@ Route::middleware([
 
     Route::apiResource('admin/shelters', AdminShelterController::class);
     Route::get('/admin/stats', [StatsController::class, 'index']);
+
+    /*
+    | The pets living at one shelter.
+    |
+    | These are NESTED under the shelter, so the URL itself says which shelter
+    | the animal belongs to:
+    |
+    |     GET    /api/admin/shelters/5/pets
+    |     POST   /api/admin/shelters/5/pets
+    |     PUT    /api/admin/shelters/5/pets/9
+    |     DELETE /api/admin/shelters/5/pets/9
+    |
+    | This is the ER diagram's "lives" relationship expressed as a URL:
+    | a pet is always reached through the shelter it lives in.
+    */
+    Route::get('/admin/shelters/{shelter}/pets', [
+        ShelterPetController::class,
+        'index'
+    ]);
+
+    Route::post('/admin/shelters/{shelter}/pets', [
+        ShelterPetController::class,
+        'store'
+    ]);
+
+    Route::put('/admin/shelters/{shelter}/pets/{pet}', [
+        ShelterPetController::class,
+        'update'
+    ]);
+
+    Route::delete('/admin/shelters/{shelter}/pets/{pet}', [
+        ShelterPetController::class,
+        'destroy'
+    ]);
 
     // Admin list for the "Assigned Admin" dropdown (issue #17)
     Route::get('/admin/admins', [
