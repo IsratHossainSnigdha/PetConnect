@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\AdoptionApplicationController;
 use App\Http\Controllers\Api\PetController;
 use App\Http\Controllers\Api\ShelterController as ApiShelterController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\NotificationController;
 
 
 /*
@@ -191,6 +192,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/adopter/applications/{id}', [
         AdoptionApplicationController::class,
         'show'
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/notifications', [
+        NotificationController::class,
+        'index'
+    ]);
+
+    Route::put('/notifications/{id}/read', [
+        NotificationController::class,
+        'markAsRead'
     ]);
 
 
