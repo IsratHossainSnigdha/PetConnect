@@ -2,12 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
-  Dog,
   LayoutDashboard,
   FileText,
   User,
   Settings,
-  Search,
   Bell,
   LogOut,
   Sun,
@@ -32,36 +30,17 @@ import {
 
 import "./adopterDashboard.css";
 
-export default function AdopterDashboard({
-  darkMode,
-  toggleDarkMode,
-}) {
+const AdopterDashboard = ({ darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activePage, setActivePage] = useState("dashboard");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  /* =========================
-     BACKEND DATA
-  ========================= */
-
-  const [dashboardData, setDashboardData] = useState(null);
-  const [applications, setApplications] = useState([]);
-
-  const [currentUser, setCurrentUser] = useState(
-    getCachedUser()
-  );
-
+  const [user, setUser] = useState(null);
+  const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  /* =========================
-     FETCH DASHBOARD
-  ========================= */
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const fetchDashboard = async () => {
+    const loadDashboard = async () => {
       try {
         setLoading(true);
         setError("");
@@ -69,97 +48,52 @@ export default function AdopterDashboard({
         const token = getToken();
 
         if (!token) {
-          navigate("/login");
+          navigate("/auth/login");
           return;
         }
 
-        /* Get authenticated user */
-        const userResponse = await apiFetch("/auth/me");
+        // Get authenticated user
+        const meResponse = await apiFetch("/auth/me");
 
-        const authenticatedUser = userResponse.user;
+        const authenticatedUser =
+          meResponse?.user || meResponse;
 
-        setCurrentUser(authenticatedUser);
+        if (authenticatedUser) {
+          setUser(authenticatedUser);
+          setSession(token, authenticatedUser);
+        } else {
+          const cachedUser = getCachedUser();
 
-        setSession(
-          token,
-          authenticatedUser
-        );
+          if (cachedUser) {
+            setUser(cachedUser);
+          }
+        }
 
-        /* Get dashboard data */
-        const data = await apiFetch(
-          "/adopter/dashboard"
-        );
+        // Get adopter dashboard data
+        const dashboardResponse =
+          await apiFetch("/adopter/dashboard");
 
-        console.log(
-          "Adopter dashboard response:",
-          data
-        );
-
-        setDashboardData(data);
-
-        setApplications(
-          Array.isArray(data.applications)
-            ? data.applications
-            : []
-        );
-
+        setDashboard(dashboardResponse);
       } catch (err) {
-        console.error(
-          "Dashboard error:",
-          err
-        );
+        console.error("Dashboard error:", err);
 
-        if (err.status === 401) {
+        if (err?.status === 401) {
           clearSession();
-          navigate("/login");
+          navigate("/auth/login");
           return;
         }
 
         setError(
-          err.message ||
-            "Unable to load dashboard."
+          err?.message ||
+            "Unable to load dashboard. Please try again."
         );
-
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboard();
+    loadDashboard();
   }, [navigate]);
-
-  /* =========================
-     NAVIGATION
-  ========================= */
-
-  const handleNavigation = (page) => {
-    setActivePage(page);
-    setSidebarOpen(false);
-
-    if (page === "dashboard") {
-      navigate("/dashboard/adopter");
-    }
-
-    if (page === "applications") {
-      navigate("/applications/adopter");
-    }
-
-    if (page === "profile") {
-      navigate("/profile/adopter");
-    }
-
-    if (page === "complaints") {
-      navigate("/complaints/adopter");
-    }
-
-    if (page === "settings") {
-      setActivePage("settings");
-    }
-  };
-
-  /* =========================
-     LOGOUT
-  ========================= */
 
   const handleLogout = async () => {
     try {
@@ -167,257 +101,50 @@ export default function AdopterDashboard({
         method: "POST",
       });
     } catch (err) {
-      console.error(
-        "Logout error:",
-        err
-      );
+      console.error("Logout error:", err);
     } finally {
       clearSession();
-      navigate("/login");
+      navigate("/auth/login");
     }
   };
 
-  /* =========================
-     USER
-  ========================= */
-
-  const user = currentUser || {};
-
-  const userName =
-    user.name ||
-    user.username ||
-    "Adopter";
-
-  const avatarLetter =
-    userName.charAt(0).toUpperCase();
-
-  /* =========================
-     STATISTICS
-  ========================= */
-
-  const statistics =
-    dashboardData?.statistics || {};
-
-  const totalApplications =
-    statistics.total_applications ??
-    applications.length;
-
-  const pendingApplications =
-    statistics.pending_applications ??
-    applications.filter(
-      (application) =>
-        application.status?.toLowerCase() ===
-        "pending"
-    ).length;
-
-  const approvedApplications =
-    statistics.approved_applications ??
-    applications.filter(
-      (application) =>
-        application.status?.toLowerCase() ===
-        "approved"
-    ).length;
-
-  const rejectedApplications =
-    statistics.rejected_applications ??
-    applications.filter(
-      (application) =>
-        application.status?.toLowerCase() ===
-        "rejected"
-    ).length;
-
-  /* =========================
-     SEARCH
-  ========================= */
-
-  const filteredApplications =
-    applications.filter((application) => {
-      const search =
-        searchQuery.toLowerCase();
-
-      const petName =
-        application.pet?.name ||
-        application.pet_name ||
-        application.petName ||
-        "";
-
-      const petType =
-        application.pet?.type ||
-        application.pet_type ||
-        application.type ||
-        application.breed ||
-        "";
-
-      const shelter =
-        application.pet?.shelter?.name ||
-        application.shelter?.name ||
-        application.shelter_name ||
-        application.shelterName ||
-        "";
-
-      const status =
-        application.status || "";
-
-      return (
-        petName
-          .toLowerCase()
-          .includes(search) ||
-        petType
-          .toLowerCase()
-          .includes(search) ||
-        shelter
-          .toLowerCase()
-          .includes(search) ||
-        status
-          .toLowerCase()
-          .includes(search)
-      );
-    });
-
-  /* =========================
-     APPLICATION HELPERS
-  ========================= */
-
-  const getPetName = (application) => {
-    return (
-      application.pet?.name ||
-      application.pet_name ||
-      application.petName ||
-      "Unknown Pet"
-    );
+  const goTo = (path) => {
+    setSidebarOpen(false);
+    navigate(path);
   };
-
-  const getPetType = (application) => {
-    return (
-      application.pet?.type ||
-      application.pet_type ||
-      application.type ||
-      application.breed ||
-      "Pet"
-    );
-  };
-
-  const getShelterName = (application) => {
-    return (
-      application.pet?.shelter?.name ||
-      application.shelter?.name ||
-      application.shelter_name ||
-      application.shelterName ||
-      "Unknown Shelter"
-    );
-  };
-
-  const getApplicationDate = (
-    application
-  ) => {
-    const date =
-      application.created_at ||
-      application.date ||
-      application.application_date;
-
-    if (!date) {
-      return "Date unavailable";
-    }
-
-    const parsedDate = new Date(date);
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return date;
-    }
-
-    return parsedDate.toLocaleDateString(
-      "en-US",
-      {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }
-    );
-  };
-
-  const getStatusIcon = (status) => {
-    const normalizedStatus =
-      status?.toLowerCase();
-
-    if (
-      normalizedStatus ===
-      "approved"
-    ) {
-      return (
-        <CheckCircle size={17} />
-      );
-    }
-
-    if (
-      normalizedStatus ===
-      "rejected"
-    ) {
-      return (
-        <XCircle size={17} />
-      );
-    }
-
-    return <Clock size={17} />;
-  };
-
-  /* =========================
-     LOADING
-  ========================= */
 
   if (loading) {
     return (
       <div
-        className={`dashboard-container ${
+        className={`adopter-dashboard ${
           darkMode ? "dark" : ""
         }`}
       >
         <div className="dashboard-loading">
           <div className="loading-spinner"></div>
-
-          <h3>
-            Loading your dashboard...
-          </h3>
-
-          <p>
-            Please wait while we fetch your
-            adoption information.
-          </p>
+          <p>Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  /* =========================
-     ERROR
-  ========================= */
-
   if (error) {
     return (
       <div
-        className={`dashboard-container ${
+        className={`adopter-dashboard ${
           darkMode ? "dark" : ""
         }`}
       >
         <div className="dashboard-error">
-          <div className="error-icon">
-            <XCircle size={28} />
-          </div>
+          <XCircle size={48} />
 
-          <h3>
-            Unable to load dashboard
-          </h3>
+          <h2>Something went wrong</h2>
 
           <p>{error}</p>
 
           <button
-            className="retry-btn"
-            onClick={() =>
-              window.location.reload()
-            }
+            className="primary-button"
+            onClick={() => window.location.reload()}
           >
             Try Again
           </button>
@@ -426,71 +153,63 @@ export default function AdopterDashboard({
     );
   }
 
+  const stats = dashboard?.stats || {};
+
+  const totalApplications = stats.total ?? 0;
+  const pendingApplications = stats.pending ?? 0;
+  const approvedApplications = stats.approved ?? 0;
+  const rejectedApplications = stats.rejected ?? 0;
+
+  const firstName =
+    user?.name?.split(" ")[0] || "Adopter";
+
   return (
     <div
-      className={`dashboard-container ${
+      className={`adopter-dashboard ${
         darkMode ? "dark" : ""
       }`}
     >
-
-      {/* MOBILE SIDEBAR OVERLAY */}
-
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="sidebar-overlay"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
+          onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* SIDEBAR */}
+      {/* ================= SIDEBAR ================= */}
 
       <aside
-        className={`sidebar ${
-          sidebarOpen ? "open" : ""
+        className={`adopter-sidebar ${
+          sidebarOpen ? "sidebar-open" : ""
         }`}
       >
-
-        {/* LOGO */}
-
-        <div
-          className="sidebar-logo"
-          onClick={() =>
-            navigate(
-              "/dashboard/adopter"
-            )
-          }
-        >
+        {/* Logo */}
+        <div className="sidebar-logo">
           <div className="logo-icon">
-            <Dog size={23} />
+            <PawPrint size={24} />
           </div>
 
-          <div className="logo-text">
-            PET
-            <br />
-            <span>CONNECT</span>
-          </div>
-        </div>
-
-        {/* NAVIGATION */}
-
-        <div className="sidebar-content">
-
-          <div className="sidebar-label">
-            Main Menu
+          <div>
+            <h2>PetConnect</h2>
+            <span>Adopter Portal</span>
           </div>
 
           <button
-            className={`nav-item ${
-              activePage === "dashboard"
-                ? "active"
-                : ""
-            }`}
+            className="mobile-close"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+
+          <button
+            className="nav-item active"
             onClick={() =>
-              handleNavigation(
-                "dashboard"
-              )
+              goTo("/dashboard/adopter")
             }
           >
             <LayoutDashboard size={19} />
@@ -498,80 +217,52 @@ export default function AdopterDashboard({
           </button>
 
           <button
-            className={`nav-item ${
-              activePage === "applications"
-                ? "active"
-                : ""
-            }`}
+            className="nav-item"
             onClick={() =>
-              handleNavigation(
-                "applications"
-              )
+              goTo("/applications/adopter")
             }
           >
             <FileText size={19} />
-
-            <span>
-              My Applications
-            </span>
+            <span>My Applications</span>
           </button>
 
           <button
-            className={`nav-item ${
-              activePage === "profile"
-                ? "active"
-                : ""
-            }`}
+            className="nav-item"
             onClick={() =>
-              handleNavigation(
-                "profile"
-              )
+              goTo("/profile/adopter")
             }
           >
             <User size={19} />
-            <span>Profile</span>
+            <span>My Profile</span>
           </button>
 
           <button
-            className={`nav-item ${
-              activePage === "complaints"
-                ? "active"
-                : ""
-            }`}
+            className="nav-item"
             onClick={() =>
-              handleNavigation(
-                "complaints"
-              )
+              goTo("/complaints/adopter")
             }
           >
             <Flag size={19} />
             <span>Complaints</span>
           </button>
 
+        </nav>
+
+        {/* Bottom navigation */}
+        <div className="sidebar-bottom">
+
           <button
-            className={`nav-item ${
-              activePage === "settings"
-                ? "active"
-                : ""
-            }`}
+            className="nav-item"
             onClick={() =>
-              handleNavigation(
-                "settings"
-              )
+              goTo("/profile/adopter")
             }
           >
             <Settings size={19} />
             <span>Settings</span>
           </button>
 
-        </div>
-
-        {/* LOGOUT */}
-
-        <div className="sidebar-bottom">
-
           <button
-            className="logout-btn"
+            className="nav-item logout-item"
             onClick={handleLogout}
           >
             <LogOut size={19} />
@@ -579,633 +270,302 @@ export default function AdopterDashboard({
           </button>
 
         </div>
-
       </aside>
 
-      {/* MAIN */}
+      {/* ================= MAIN ================= */}
 
-      <div className="main-wrapper">
+      <main className="adopter-main">
 
-        {/* TOPBAR */}
+        {/* Header */}
+        <header className="dashboard-header">
 
-        <header className="topbar">
-
-          <div className="topbar-left">
+          <div className="header-left">
 
             <button
-              className="mobile-menu-btn"
+              className="mobile-menu"
               onClick={() =>
-                setSidebarOpen(
-                  !sidebarOpen
-                )
+                setSidebarOpen(true)
               }
             >
-              {sidebarOpen ? (
-                <X size={20} />
-              ) : (
-                <Menu size={20} />
-              )}
+              <Menu size={23} />
             </button>
 
-            <div className="page-title">
-
-              <h1>
-                {activePage ===
-                  "dashboard"
-                  ? "Dashboard"
-                  : activePage ===
-                    "applications"
-                  ? "My Applications"
-                  : activePage ===
-                    "profile"
-                  ? "Profile"
-                  : activePage ===
-                    "complaints"
-                  ? "Complaints"
-                  : "Settings"}
-              </h1>
+            <div>
+              <h1>Dashboard</h1>
 
               <p>
-                Manage your Pet Connect
-                account
+                Welcome back, {firstName}!
               </p>
-
             </div>
 
           </div>
 
-          <div className="topbar-right">
+          {/* Header actions */}
+          <div className="header-actions">
 
-            <div className="search-box">
-
-              <Search size={17} />
-
-              <input
-                type="text"
-                placeholder="Search applications..."
-                value={searchQuery}
-                onChange={(e) =>
-                  setSearchQuery(
-                    e.target.value
-                  )
-                }
-              />
-
-            </div>
-
+            {/* Notifications */}
             <button
-              className="theme-btn"
-              onClick={
-                toggleDarkMode
+              className="icon-button"
+              title="Notifications"
+            >
+              <Bell size={20} />
+
+              <span className="notification-dot"></span>
+            </button>
+
+            {/* Dark mode */}
+            <button
+              className="icon-button"
+              onClick={toggleDarkMode}
+              title={
+                darkMode
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
               }
-              title="Toggle Theme"
             >
               {darkMode ? (
-                <Sun size={18} />
+                <Sun size={20} />
               ) : (
-                <Moon size={18} />
+                <Moon size={20} />
               )}
             </button>
 
+            {/* Profile */}
             <button
-              className="icon-btn"
-              title="Notifications"
-            >
-              <Bell size={18} />
-
-              <span className="notification-dot" />
-            </button>
-
-            <button
-              className="profile-btn"
+              className="profile-mini"
               onClick={() =>
-                navigate(
-                  "/profile/adopter"
-                )
+                goTo("/profile/adopter")
               }
-              title="View Profile"
             >
               <div className="profile-avatar">
-                {avatarLetter}
+                {(user?.name || "A")
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
 
-              <div className="profile-info">
+              <div className="profile-mini-info">
+
                 <strong>
-                  {userName}
+                  {user?.name || "Adopter"}
                 </strong>
 
-                <span>
-                  Adopter
-                </span>
+                <span>Adopter</span>
+
               </div>
             </button>
 
           </div>
-
         </header>
 
-        {/* CONTENT */}
+        {/* ================= CONTENT ================= */}
 
-        <main className="content">
+        <div className="dashboard-content">
 
-          {/* =========================
-              DASHBOARD
-          ========================= */}
+          {/* Page heading */}
+          <div className="dashboard-page-heading">
 
-          {activePage ===
-            "dashboard" && (
-            <>
+            <div>
+              <h2>Overview</h2>
 
-              <section className="welcome-section">
+              <p>
+                Keep track of your adoption applications.
+              </p>
+            </div>
 
-                <h2>
-                  Welcome back,{" "}
-                  {userName}! 🐾
-                </h2>
+          </div>
+
+          {/* ================= STATISTICS ================= */}
+
+          <section className="section">
+
+            <div className="stats-grid">
+
+              {/* Total */}
+              <div className="stat-card">
+
+                <div className="stat-icon total">
+                  <FileText size={21} />
+                </div>
+
+                <div className="stat-info">
+
+                  <span>
+                    Total Applications
+                  </span>
+
+                  <strong>
+                    {totalApplications}
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* Pending */}
+              <div className="stat-card">
+
+                <div className="stat-icon pending">
+                  <Clock size={21} />
+                </div>
+
+                <div className="stat-info">
+
+                  <span>Pending</span>
+
+                  <strong>
+                    {pendingApplications}
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* Approved */}
+              <div className="stat-card">
+
+                <div className="stat-icon approved">
+                  <CheckCircle size={21} />
+                </div>
+
+                <div className="stat-info">
+
+                  <span>Approved</span>
+
+                  <strong>
+                    {approvedApplications}
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* Rejected */}
+              <div className="stat-card">
+
+                <div className="stat-icon rejected">
+                  <XCircle size={21} />
+                </div>
+
+                <div className="stat-info">
+
+                  <span>Rejected</span>
+
+                  <strong>
+                    {rejectedApplications}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* ================= QUICK ACTIONS ================= */}
+
+          <section className="section">
+
+            <div className="section-heading">
+
+              <div>
+                <h2>Quick Access</h2>
 
                 <p>
-                  Keep track of your
-                  adoption journey and find
-                  your perfect companion.
+                  Manage your PetConnect account.
                 </p>
-
-              </section>
-
-              {/* STATISTICS */}
-
-              <section className="stats-grid">
-
-                <div className="stat-card">
-
-                  <div className="stat-info">
-                    <p>
-                      Total Applications
-                    </p>
-
-                    <h3>
-                      {totalApplications}
-                    </h3>
-                  </div>
-
-                  <div className="stat-icon orange-icon">
-                    <FileText size={21} />
-                  </div>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <div className="stat-info">
-                    <p>Pending</p>
-
-                    <h3>
-                      {pendingApplications}
-                    </h3>
-                  </div>
-
-                  <div className="stat-icon blue-icon">
-                    <Clock size={21} />
-                  </div>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <div className="stat-info">
-                    <p>Approved</p>
-
-                    <h3>
-                      {approvedApplications}
-                    </h3>
-                  </div>
-
-                  <div className="stat-icon green-icon">
-                    <CheckCircle size={21} />
-                  </div>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <div className="stat-info">
-                    <p>Rejected</p>
-
-                    <h3>
-                      {rejectedApplications}
-                    </h3>
-                  </div>
-
-                  <div className="stat-icon red-icon">
-                    <XCircle size={21} />
-                  </div>
-
-                </div>
-
-              </section>
-
-              {/* DASHBOARD GRID */}
-
-              <section className="dashboard-grid">
-
-                {/* RECENT APPLICATIONS */}
-
-                <div className="section-card">
-
-                  <div className="section-header">
-
-                    <h3>
-                      Recent Applications
-                    </h3>
-
-                    <button
-                      className="view-all-btn"
-                      onClick={() =>
-                        handleNavigation(
-                          "applications"
-                        )
-                      }
-                    >
-                      View All
-                    </button>
-
-                  </div>
-
-                  <div className="application-list">
-
-                    {filteredApplications.length >
-                    0 ? (
-                      filteredApplications.map(
-                        (application) => (
-                          <div
-                            className="application-row"
-                            key={
-                              application.id
-                            }
-                          >
-
-                            <div className="pet-info">
-
-                              <div className="pet-avatar">
-                                <PawPrint
-                                  size={21}
-                                />
-                              </div>
-
-                              <div className="pet-details">
-
-                                <h4>
-                                  {getPetName(
-                                    application
-                                  )}
-                                </h4>
-
-                                <p>
-                                  {getPetType(
-                                    application
-                                  )}
-                                  {" • "}
-                                  {getShelterName(
-                                    application
-                                  )}
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                            <div className="application-meta">
-
-                              <span
-                                className={`status ${
-                                  (
-                                    application.status ||
-                                    "Pending"
-                                  ).toLowerCase()
-                                }`}
-                              >
-                                {getStatusIcon(
-                                  application.status
-                                )}
-
-                                {application.status ||
-                                  "Pending"}
-                              </span>
-
-                              <span className="application-date">
-                                {getApplicationDate(
-                                  application
-                                )}
-                              </span>
-
-                            </div>
-
-                          </div>
-                        )
-                      )
-                    ) : (
-                      <div className="empty-state">
-
-                        <div className="empty-state-icon">
-                          <Search size={23} />
-                        </div>
-
-                        <h4>
-                          No applications found
-                        </h4>
-
-                        <p>
-                          {searchQuery
-                            ? "Try searching with a different keyword."
-                            : "You haven't submitted any adoption applications yet."}
-                        </p>
-
-                      </div>
-                    )}
-
-                  </div>
-
-                </div>
-
-                {/* QUICK ACTIONS */}
-
-                <div className="section-card">
-
-                  <div className="section-header">
-
-                    <h3>
-                      Quick Actions
-                    </h3>
-
-                  </div>
-
-                  <div className="quick-actions">
-
-                    {/* APPLICATIONS */}
-
-                    <button
-                      className="quick-action"
-                      onClick={() =>
-                        handleNavigation(
-                          "applications"
-                        )
-                      }
-                    >
-                      <div className="quick-action-icon">
-                        <FileText size={18} />
-                      </div>
-
-                      <div className="quick-action-text">
-                        <strong>
-                          My Applications
-                        </strong>
-
-                        <span>
-                          Track your adoption
-                          applications
-                        </span>
-                      </div>
-
-                      <ChevronRight size={16} />
-                    </button>
-
-                    {/* PROFILE */}
-
-                    <button
-                      className="quick-action"
-                      onClick={() =>
-                        navigate(
-                          "/profile/adopter"
-                        )
-                      }
-                    >
-                      <div className="quick-action-icon">
-                        <User size={18} />
-                      </div>
-
-                      <div className="quick-action-text">
-                        <strong>
-                          My Profile
-                        </strong>
-
-                        <span>
-                          View and edit your
-                          information
-                        </span>
-                      </div>
-
-                      <ChevronRight size={16} />
-                    </button>
-
-                    {/* SETTINGS */}
-
-                    <button
-                      className="quick-action"
-                      onClick={() =>
-                        handleNavigation(
-                          "settings"
-                        )
-                      }
-                    >
-                      <div className="quick-action-icon">
-                        <Settings size={18} />
-                      </div>
-
-                      <div className="quick-action-text">
-                        <strong>
-                          Settings
-                        </strong>
-
-                        <span>
-                          Manage your account
-                        </span>
-                      </div>
-
-                      <ChevronRight size={16} />
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </section>
-
-            </>
-          )}
-
-          {/* =========================
-              APPLICATIONS
-          ========================= */}
-
-          {activePage ===
-            "applications" && (
-            <section className="section-card">
-
-              <div className="section-header">
-
-                <h3>
-                  My Applications
-                </h3>
-
-                <span className="application-count">
-                  {totalApplications}{" "}
-                  applications
-                </span>
-
               </div>
 
-              <div className="application-list">
+            </div>
 
-                {filteredApplications.length >
-                0 ? (
-                  filteredApplications.map(
-                    (application) => (
-                      <div
-                        className="application-row"
-                        key={
-                          application.id
-                        }
-                      >
+            <div className="quick-actions">
 
-                        <div className="pet-info">
+              {/* My Applications */}
+              <button
+                className="quick-action-card"
+                onClick={() =>
+                  goTo("/applications/adopter")
+                }
+              >
 
-                          <div className="pet-avatar">
-                            <PawPrint
-                              size={21}
-                            />
-                          </div>
-
-                          <div className="pet-details">
-
-                            <h4>
-                              {getPetName(
-                                application
-                              )}
-                            </h4>
-
-                            <p>
-                              {getPetType(
-                                application
-                              )}
-                              {" • "}
-                              {getShelterName(
-                                application
-                              )}
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                        <div className="application-meta">
-
-                          <span
-                            className={`status ${
-                              (
-                                application.status ||
-                                "Pending"
-                              ).toLowerCase()
-                            }`}
-                          >
-                            {getStatusIcon(
-                              application.status
-                            )}
-
-                            {application.status ||
-                              "Pending"}
-                          </span>
-
-                          <span className="application-date">
-                            {getApplicationDate(
-                              application
-                            )}
-                          </span>
-
-                        </div>
-
-                      </div>
-                    )
-                  )
-                ) : (
-                  <div className="empty-state">
-
-                    <div className="empty-state-icon">
-                      <FileText size={23} />
-                    </div>
-
-                    <h4>
-                      No applications
-                    </h4>
-
-                    <p>
-                      You haven't submitted
-                      any adoption
-                      applications yet.
-                    </p>
-
-                  </div>
-                )}
-
-              </div>
-
-            </section>
-          )}
-
-          {/* =========================
-              SETTINGS
-          ========================= */}
-
-          {activePage ===
-            "settings" && (
-            <section className="section-card">
-
-              <div className="section-header">
-
-                <h3>
-                  Settings
-                </h3>
-
-              </div>
-
-              <div className="settings-content">
-
-                <div className="settings-option">
-
-                  <div>
-
-                    <strong>
-                      Dark Mode
-                    </strong>
-
-                    <span>
-                      Change the appearance
-                      of Pet Connect
-                    </span>
-
-                  </div>
-
-                  <button
-                    className="theme-btn"
-                    onClick={
-                      toggleDarkMode
-                    }
-                  >
-                    {darkMode ? (
-                      <Sun size={18} />
-                    ) : (
-                      <Moon size={18} />
-                    )}
-                  </button>
-
+                <div className="quick-action-icon">
+                  <FileText size={21} />
                 </div>
 
-              </div>
+                <div>
+                  <strong>
+                    My Applications
+                  </strong>
 
-            </section>
-          )}
+                  <span>
+                    Check your application status
+                  </span>
+                </div>
 
-        </main>
+                <ChevronRight size={19} />
 
-      </div>
+              </button>
+
+              {/* My Profile */}
+              <button
+                className="quick-action-card"
+                onClick={() =>
+                  goTo("/profile/adopter")
+                }
+              >
+
+                <div className="quick-action-icon">
+                  <User size={21} />
+                </div>
+
+                <div>
+                  <strong>
+                    My Profile
+                  </strong>
+
+                  <span>
+                    View and update your profile
+                  </span>
+                </div>
+
+                <ChevronRight size={19} />
+
+              </button>
+
+              {/* Complaints */}
+              <button
+                className="quick-action-card"
+                onClick={() =>
+                  goTo("/complaints/adopter")
+                }
+              >
+
+                <div className="quick-action-icon">
+                  <Flag size={21} />
+                </div>
+
+                <div>
+                  <strong>
+                    Complaints
+                  </strong>
+
+                  <span>
+                    Submit or track a complaint
+                  </span>
+                </div>
+
+                <ChevronRight size={19} />
+
+              </button>
+
+            </div>
+
+          </section>
+
+        </div>
+      </main>
     </div>
   );
-}
+};
+
+export default AdopterDashboard;
