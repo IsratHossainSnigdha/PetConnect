@@ -68,6 +68,77 @@ class AdoptionApplicationController extends Controller
             'applications' => $applications
         ]);
     }
+    public function processRequests(Request $request)
+{
+    $user = $request->user();
+
+    // Retrieve all adoption requests of the logged-in adopter
+    $requests = DB::select(
+        "
+        SELECT
+            applications.id,
+            applications.adopter_id,
+            applications.pet_id,
+            applications.status AS application_status,
+
+            pets.name AS pet_name,
+            pets.status AS pet_status
+
+        FROM applications
+
+        INNER JOIN pets
+            ON applications.pet_id = pets.id
+
+        WHERE applications.adopter_id = ?
+
+        ORDER BY applications.created_at DESC
+        ",
+        [$user->id]
+    );
+
+    $processedRequests = [];
+
+    // Process each adoption request one by one
+    foreach ($requests as $requestItem) {
+
+        $originalStatus = $requestItem->application_status;
+
+        // Only pending applications can be changed
+        if ($requestItem->application_status === 'pending') {
+
+            // Check whether the associated pet is still available
+            if ($requestItem->pet_status !== 'available') {
+
+                // Pet is no longer available.
+                // Reject the pending application.
+                DB::table('applications')
+                    ->where('id', $requestItem->id)
+                    ->where('adopter_id', $user->id)
+                    ->where('status', 'pending')
+                    ->update([
+                        'status' => 'rejected',
+                        'updated_at' => now(),
+                    ]);
+
+                $requestItem->application_status = 'rejected';
+            }
+        }
+
+        $processedRequests[] = [
+            'application_id' => $requestItem->id,
+            'pet_id' => $requestItem->pet_id,
+            'pet_name' => $requestItem->pet_name,
+            'pet_status' => $requestItem->pet_status,
+            'original_status' => $originalStatus,
+            'current_status' => $requestItem->application_status,
+        ];
+    }
+
+    return response()->json([
+        'message' => 'Adoption requests processed successfully.',
+        'requests' => $processedRequests
+    ]);
+}
 
 
     /*
