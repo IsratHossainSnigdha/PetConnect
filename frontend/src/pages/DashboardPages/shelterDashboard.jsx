@@ -368,9 +368,7 @@ export default function ShelterDashboard({
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                   <div><strong>Shelter ID:</strong> {petSummary.shelter_id}</div>
                   <div><strong>Total Registered:</strong> {petSummary.total_pets}</div>
-                  <div><strong>Available:</strong> {petSummary.available_count}</div>
-                  <div><strong>Pending:</strong> {petSummary.pending_count}</div>
-                  <div><strong>Adopted:</strong> {petSummary.adopted_count}</div>
+                  
                 </div>
               </div>
             )}

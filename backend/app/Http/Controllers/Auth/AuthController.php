@@ -21,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 | The `password` column NEVER holds the real password. It holds a one-way
 | BCRYPT HASH:
 |
-|     "Password123!"  ->  "$2y$12$Ku8nP.../Xk9wQfa4mS"
+|    "Password123!"  ->  "$2y$12$Ku8nP.../Xk9wQfa4mS"
 |
 | One-way means there is no un-hash function. Even with full access to the
 | users table you cannot read anybody's password. That is the point: when a
@@ -29,11 +29,11 @@ use Illuminate\Validation\ValidationException;
 |
 | So logging in CANNOT be:
 |
-|     SELECT * FROM users WHERE email = ? AND password = ?   <- impossible
+|    SELECT * FROM users WHERE email = ? AND password = ?   <- impossible
 |
 | It has to be two steps:
-|     1. SELECT the row by email
-|     2. Hash::check() re-hashes what was typed and compares the two hashes
+|    1. SELECT the row by email
+|    2. Hash::check() re-hashes what was typed and compares the two hashes
 |
 |------------------------------------------------------------------------------
 | ONE PLACE WE STILL USE THE MODEL, ON PURPOSE
@@ -65,7 +65,7 @@ class AuthController extends Controller
         /*
         | STEP 1: find the row.
         |
-        |     SELECT * FROM users WHERE email = ? LIMIT 1;
+        |    SELECT * FROM users WHERE email = ? LIMIT 1;
         |
         | LIMIT 1 tells MySQL it can stop as soon as it finds a match instead
         | of scanning the rest of the table. This lookup is fast because
@@ -125,6 +125,7 @@ class AuthController extends Controller
             'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password'   => ['required', 'string', 'min:6'],
             'shelter_id' => ['required', 'exists:shelters,id'], // Foreign key existence check
+            'phone'      => ['nullable', 'string', 'max:255'],   // ফ্রন্টএন্ড থেকে ফোন নম্বর আসার ক্ষেত্রে ভ্যালিডেশন হ্যান্ডেল করার জন্য
         ], [
             'shelter_id.exists'   => 'The selected shelter does not exist in our database. Please select a valid shelter.',
             'shelter_id.required' => 'A shelter must be selected for shelter staff accounts.',
@@ -213,7 +214,7 @@ class AuthController extends Controller
         $id =$request->user()->id;
 
         $validated =$request->validate([
-            'name'     => ['required', 'regex:/^[A-Za-z\s.\'-]+$/', 'max:255'],             'username' => ['nullable', 'string', 'max:255'],             'email'    => ['required', 'email', 'max:255'],             'phone'    => ['nullable', 'regex:/^(?:\+88\vert{}01)?\d{11}$/'],
+            'name'     => ['required', 'regex:/^[A-Za-z\s.\'-]+$/', 'max:255'],             'username' => ['nullable', 'string', 'max:255'],             'email'    => ['required', 'email', 'max:255'],             'phone'    => ['nullable', 'regex:/^(?:\+8801)?\d{11}$/'],
             'address'  => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -245,7 +246,7 @@ class AuthController extends Controller
         }
 
         /*
-        |    UPDATE users SET ... WHERE id = ?;
+        |   UPDATE users SET ... WHERE id = ?;
         |
         | Notice `role` is NOT in this list, deliberately. If it were, any
         | logged-in adopter could send {"role":"platform_admin"} and promote
@@ -342,8 +343,8 @@ class AuthController extends Controller
         | This is raw SQL because it is an ordinary DELETE - no token hashing
         | is involved in removing rows.
         |
-        |    DELETE FROM personal_access_tokens
-        |    WHERE tokenable_id = ? AND id <> ?;
+        |   DELETE FROM personal_access_tokens
+        |   WHERE tokenable_id = ? AND id <> ?;
         */
         $currentTokenId =$user->currentAccessToken()->id;
 
@@ -372,7 +373,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         /*
-        |    DELETE FROM personal_access_tokens WHERE id = ?;
+        |   DELETE FROM personal_access_tokens WHERE id = ?;
         |
         | Deleting the row is what actually makes the token stop working.
         | Merely dropping it from the browser would leave a valid token alive

@@ -13,7 +13,7 @@ export default function AddPet({ darkMode }) {
     type: "Dog",
     breed: "",
     age: "",
-    status: "Available",
+    status: "Availabe",
     image: "", 
   });
 
@@ -29,22 +29,29 @@ export default function AddPet({ darkMode }) {
 
     const token = localStorage.getItem("petconnect_token");
 
-    // 1. LocalStorage theke logged-in user-er shelter_id ber kore nao
+    // localstorage theke shelter_id 
     const storedUser = localStorage.getItem("petconnect_user");
     let shelterId = "";
+    
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        shelterId = parsedUser.shelter_id || parsedUser.id; // tomar database column onujayi hobe
+        shelterId = parsedUser.shelter_id; 
       } catch (err) {
         console.error("Error parsing user data:", err);
       }
     }
 
-    // 2. FormData ar shelter_id eksathe payload-e add koro
+    // shelter id match na hole error
+    if (!shelterId) {
+      setErrorMsg("Shelter ID is missing. Please make sure your account is assigned to a shelter or log in again.");
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       ...formData,
-      shelter_id: shelterId, // <--- Eta add kora holo
+      shelter_id: shelterId,
       image: formData.image.trim() !== "" ? formData.image : null,
     };
 
@@ -58,6 +65,7 @@ export default function AddPet({ darkMode }) {
       });
 
       console.log("Pet added successfully:", response.data);
+      alert("Pet added successfully!");
       navigate("/dashboard/shelter");
     } catch (error) {
       console.error("Error adding pet:", error.response?.data);

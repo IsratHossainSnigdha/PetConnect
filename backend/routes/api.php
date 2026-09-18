@@ -65,15 +65,25 @@ Route::post('/auth/shelter/register', [
     'register'
 ]);
 
+Route::post('/auth/staff/register', [
+    ShelterRegisterController::class,
+    'register'
+]);
+
 
 /*
 |--------------------------------------------------------------------------
-| PUBLIC PET ROUTES
+| PUBLIC PET & SHELTER ROUTES
 |--------------------------------------------------------------------------
 */
 
 Route::get('/pets', [
     PetController::class,
+    'index'
+]);
+
+Route::get('/shelters', [
+    ApiShelterController::class,
     'index'
 ]);
 

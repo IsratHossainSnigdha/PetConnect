@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 
 // Saves the API token + user into localStorage, so the app is logged in.
@@ -21,31 +21,52 @@ export default function ShelterSignup({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     staffName: '',
-    shelterName: '',
-    shelterNumber: '',
+    shelter_id: '', 
     staffNumber: '',
     email: '',
     password: '',
     confirmPassword: ''
   });
 
+  const [shelters, setShelters] = useState([]); 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-const API = import.meta.env.VITE_API_URL;
+  const API = import.meta.env.VITE_API_URL;
+
+  // api theke shelter list ana
+  useEffect(() => {
+    const fetchShelters = async () => {
+      try {
+        const response = await fetch(`${API}/shelters`, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          // data jodi array ba object er vitor thake
+          setShelters(Array.isArray(data) ? data : data.shelters || []);
+        }
+      } catch (error) {
+        console.error("Failed to load shelters", error);
+      }
+    };
+
+    fetchShelters();
+  }, [API]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-
-    if (name === 'staffName' || name === 'shelterName') {
+    if (name === 'staffName') {
       const filteredValue = value.replace(/[0-9]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
       return;
     }
 
-    if (name === 'shelterNumber' || name === 'staffNumber') {
+    if (name === 'staffNumber') {
       const filteredValue = value.replace(/[^0-9+]/g, '');
       setFormData({ ...formData, [name]: filteredValue });
       return;
@@ -55,81 +76,85 @@ const API = import.meta.env.VITE_API_URL;
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const nameRegex = /^[A-Za-z\s]+$/;
-  if (!nameRegex.test(formData.staffName) || !nameRegex.test(formData.shelterName)) {
-    alert("Names cannot contain numbers or special characters.");
-    return;
-  }
-
-  const passwordRegex =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-
-  if (!passwordRegex.test(formData.password)) {
-    alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.");
-    return;
-  }
-
-  if (formData.password !== formData.confirmPassword) {
-    alert("Passwords do not match!");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch(`${API}/auth/shelter/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        staffName: formData.staffName.trim(),
-        shelterName: formData.shelterName.trim(),
-        shelterNumber: formData.shelterNumber.trim(),
-        staffNumber: formData.staffNumber.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        password_confirmation: formData.confirmPassword,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      if (data.errors) {
-        alert(Object.values(data.errors).flat().join("\n"));
-      } else {
-        alert(data.message || "Registration failed.");
-      }
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!nameRegex.test(formData.staffName)) {
+      alert("Staff name cannot contain numbers or special characters.");
       return;
     }
 
-    alert("Shelter Staff Account Created Successfully!");
+    if (!formData.shelter_id) {
+      alert("Please select a valid shelter.");
+      return;
+    }
 
-    setFormData({
-      staffName: "",
-      shelterName: "",
-      shelterNumber: "",
-      staffNumber: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    });
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!\%*?&]).{8,}$/;
 
-    // AUTO-LOGIN: the register endpoint returns a token, so save it and the
-    // app is already authenticated - no second password prompt.
-    setSession(data.token, data.user);
+    if (!passwordRegex.test(formData.password)) {
+      alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.");
+      return;
+    }
 
-    navigate("/dashboard/shelter");
-  } catch (error) {
-    alert("Cannot connect to the server.");
-  } finally {
-    setLoading(false);
-  }
-};
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // backend validation
+      const response = await fetch(`${API}/auth/staff/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          staffName: formData.staffName.trim(),
+          staffNumber: formData.staffNumber.trim(),
+          shelter_id: formData.shelter_id,
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.errors) {
+          alert(Object.values(data.errors).flat().join("\n"));
+        } else {
+          alert(data.message || "Registration failed.");
+        }
+        return;
+      }
+
+      alert("Shelter Staff Account Created Successfully!");
+
+      setFormData({
+        staffName: "",
+        shelter_id: "",
+        staffNumber: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+
+      // AUTO-LOGIN
+      setSession(data.token, data.user);
+
+      navigate("/dashboard/shelter");
+    } catch (error) {
+      alert("Cannot connect to the server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -392,6 +417,7 @@ const API = import.meta.env.VITE_API_URL;
           position: absolute;
           left: 14px;
           color: #888;
+          z-index: 2;
         }
 
         .eye-icon {
@@ -401,7 +427,8 @@ const API = import.meta.env.VITE_API_URL;
           cursor: pointer;
         }
 
-        .input-with-icon input {
+        .input-with-icon input,
+        .input-with-icon select {
           width: 100%;
           padding: 9px 40px 9px 40px;
           border: 1px solid #cbd5e1;
@@ -412,7 +439,8 @@ const API = import.meta.env.VITE_API_URL;
           transition: all 0.2s;
         }
 
-        .input-with-icon input:focus {
+        .input-with-icon input:focus,
+        .input-with-icon select:focus {
           border-color: #38a169;
           box-shadow: 0 0 0 3px rgba(56, 161, 105, 0.15);
         }
@@ -501,15 +529,22 @@ const API = import.meta.env.VITE_API_URL;
           color: #e2e8f0;
         }
 
-        .container.dark .input-with-icon input {
+        .container.dark .input-with-icon input,
+        .container.dark .input-with-icon select {
           background: rgba(15, 23, 42, 0.6);
           border-color: rgba(255, 255, 255, 0.15);
           color: white;
         }
 
-        .container.dark .input-with-icon input:focus {
+        .container.dark .input-with-icon input:focus,
+        .container.dark .input-with-icon select:focus {
           border-color: #6ee7b7;
           box-shadow: 0 0 0 3px rgba(110, 231, 183, 0.2);
+        }
+
+        .container.dark .input-with-icon select option {
+          background: #1e303d;
+          color: white;
         }
       `}</style>
 
@@ -518,7 +553,7 @@ const API = import.meta.env.VITE_API_URL;
         <div className="paw-pattern-bg"></div>
 
         <nav className="navbar">
-          <div className="logo"onClick={() => navigate("/")}>
+          <div className="logo" onClick={() => navigate("/")}>
             <div className="logo-icon">
               <Dog size={24} />
             </div>
@@ -544,7 +579,7 @@ const API = import.meta.env.VITE_API_URL;
 
             <button
               className="back-btn"
-             onClick={() => navigate("/signup")}
+              onClick={() => navigate("/signup")}
             >
               <ArrowLeft size={16} /> Back
             </button>
@@ -575,35 +610,24 @@ const API = import.meta.env.VITE_API_URL;
                 </div>
               </div>
 
-              {/* Shelter Name */}
+              {/* Shelter Selection Dropdown */}
               <div className="input-group">
-                <label>Shelter Name</label>
+                <label>Select Shelter</label>
                 <div className="input-with-icon">
                   <Home className="input-icon" size={18} />
-                  <input
-                    type="text"
-                    name="shelterName"
-                    placeholder="e.g. Safe Heaven Animal Shelter"
-                    value={formData.shelterName}
+                  <select
+                    name="shelter_id"
+                    value={formData.shelter_id}
                     onChange={handleChange}
                     required
-                  />
-                </div>
-              </div>
-
-              {/* Shelter's Number */}
-              <div className="input-group">
-                <label>Shelter's Contact Number</label>
-                <div className="input-with-icon">
-                  <Phone className="input-icon" size={18} />
-                  <input
-                    type="tel"
-                    name="shelterNumber"
-                    placeholder="e.g. 018XXXXXXXX"
-                    value={formData.shelterNumber}
-                    onChange={handleChange}
-                    required
-                  />
+                  >
+                    <option value="">-- Choose a Shelter --</option>
+                    {shelters.map((shelter) => (
+                      <option key={shelter.id} value={shelter.id}>
+                        {shelter.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -677,9 +701,9 @@ const API = import.meta.env.VITE_API_URL;
                 </div>
               </div>
 
-             <button type="submit" className="submit-btn" disabled={loading}>
-  {loading ? "Creating Account..." : "REGISTER AS STAFF"}
-</button>
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? "Creating Account..." : "REGISTER AS STAFF"}
+              </button>
             </form>
 
             <div className="auth-footer-text">

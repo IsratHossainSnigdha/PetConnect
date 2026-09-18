@@ -6,12 +6,23 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Application; 
+use App\Models\Shelter;
 
 class ShelterController extends Controller
 {
+    //shelter fetch kora hoiche
+    public function index()
+    {
+        try {
+            $shelters = Shelter::all();
+            return response()->json($shelters, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch shelters'], 500);
+        }
+    }
+
     public function dashboardStats()
     {
-      
         $petsArray = DB::select("SELECT * FROM pets");
         $pets = collect($petsArray);
         
@@ -23,13 +34,11 @@ class ShelterController extends Controller
             'pending' => $pets->filter(fn($p) => strcasecmp($p->status, 'Pending') === 0)->count(),
         ];
 
-       
         $recentPets = DB::select("SELECT * FROM pets ORDER BY created_at DESC LIMIT 5");
         
         $adoptionRequests = [];
         try {
             if (class_exists(Application::class)) {
-               
                 $rawRequests = DB::select("
                     SELECT applications.*, users.name as user_name, pets.name as pet_name 
                     FROM applications 

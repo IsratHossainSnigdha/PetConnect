@@ -36,95 +36,82 @@ class PetController extends Controller
 
     public function store(Request $request)
     {
-        // Logged-in user ke ber kora holo
-        $user = auth()->user();
-
-        // Request validation
-        $validated = $request->validate([
+        $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|string',
             'breed' => 'nullable|string',
             'age' => 'nullable|string',
-            'gender' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
             'status' => 'required|string',
             'image' => 'nullable|string',
-            'shelter_id' => 'nullable|exists:shelters,id',
         ]);
 
-        // Staff ba shelter user-er nijer shelter_id thakle seta diye dao, nahole request theke nibe
-        $shelterId = $user->shelter_id ?? $request->shelter_id;
+        $user = auth()->user();
 
-        if (!$shelterId) {
-            return response()->json([
-                'message' => 'The shelter id field is required.'
-            ], 422);
+        if (!$user || !$user->shelter_id) {
+            return response()->json(['message' => 'Shelter not found.'], 422);
         }
 
-        $validated['shelter_id'] = $shelterId;
+        try {
+            // Stored procedure diye pet add korchi
+            DB::statement('CALL sp_add_shelter_pet(?, ?, ?, ?, ?, ?, ?)', [
+                $request->name,
+                $request->type,
+                $request->breed,
+                $request->age,
+                $request->status,
+                $request->image,
+                $user->shelter_id,
+            ]);
 
-        // Pet create koro Eloquent model use kore
-        $pet = Pet::create($validated);
+            $pet = Pet::where('shelter_id', $user->shelter_id)->latest()->first();
 
-        return response()->json([
-            'message' => 'Pet added successfully!',
-            'pet' => $pet
-        ], 201);
+            return response()->json([
+                'message' => 'Pet added successfully!',
+                'pet' => $pet
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to add pet.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function storeWithMedicalRecord(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|string',
-            'breed' => 'nullable|string|max:255',
-            'age' => 'nullable|string|max:255',
-            'gender' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
             'status' => 'required|string',
-            'image' => 'nullable|string',
             'shelter_id' => 'required|exists:shelters,id',
-            // Initial medical record fields
-            'vaccination_status' => 'nullable|string',
-            'medical_notes' => 'nullable|string',
         ]);
 
         $user = $request->user();
-
-        // Ensure staff can only add pets to their own assigned shelter
-        if ($user && $user->role === 'shelter_staff') {
-            if (!$user->shelter_id) {
-                return response()->json([
-                    'message' => 'Your account is not assigned to any shelter.'
-                ], 403);
-            }
-            $validated['shelter_id'] = $user->shelter_id;
-        }
+        $shelterId = ($user && $user->role === 'shelter_staff') ? $user->shelter_id : $request->shelter_id;
 
         try {
-            // Start database transaction
-            $petId = DB::transaction(function () use ($validated) {
+            // Transaction use kore pet ebong medical record ekoi sathe save korchi
+            $petId = DB::transaction(function () use ($request, $shelterId) {
                 
-                // 1. Insert the new pet into the pets table
                 $newPetId = DB::table('pets')->insertGetId([
-                    'name' => $validated['name'],
-                    'type' => $validated['type'],
-                    'breed' => $validated['breed'] ?? null,
-                    'age' => $validated['age'] ?? null,
-                    'gender' => $validated['gender'] ?? null,
-                    'description' => $validated['description'] ?? null,
-                    'status' => $validated['status'],
-                    'image' => $validated['image'] ?? null,
-                    'shelter_id' => $validated['shelter_id'],
+                    'name' => $request->name,
+                    'type' => $request->type,
+                    'breed' => $request->breed,
+                    'age' => $request->age,
+                    'gender' => $request->gender,
+                    'description' => $request->description,
+                    'status' => $request->status,
+                    'image' => $request->image,
+                    'shelter_id' => $shelterId,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
 
-                // 2. Insert the initial medical/vaccination record into the medical_records table
                 DB::table('medical_records')->insert([
                     'pet_id' => $newPetId,
-                    'vaccination_status' => $validated['vaccination_status'] ?? 'Pending',
-                    'notes' => $validated['medical_notes'] ?? 'Initial medical record created upon registration.',
+                    'vaccination_status' => $request->vaccination_status ?? 'Pending',
+                    'notes' => $request->medical_notes ?? 'Initial record',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -132,20 +119,18 @@ class PetController extends Controller
                 return $newPetId;
             });
 
-            // Fetch both records to return in response
             $pet = DB::selectOne("SELECT * FROM pets WHERE id = ?", [$petId]);
             $medicalRecord = DB::selectOne("SELECT * FROM medical_records WHERE pet_id = ?", [$petId]);
 
             return response()->json([
-                'message' => 'Pet and initial medical record registered successfully as an atomic operation!',
+                'message' => 'Pet and medical record saved successfully!',
                 'pet' => $pet,
                 'medical_record' => $medicalRecord
             ], 201);
 
         } catch (\Exception $e) {
-            // If any error occurs, the transaction is rolled back automatically
             return response()->json([
-                'message' => 'Transaction failed and rolled back completely.',
+                'message' => 'Transaction failed.',
                 'error' => $e->getMessage()
             ], 500);
         }
