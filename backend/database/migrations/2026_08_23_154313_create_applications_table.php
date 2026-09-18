@@ -35,10 +35,7 @@ return new class extends Migration
 
             // Prevent the same adopter from applying
             // for the same pet multiple times.
-            $table->unique([
-                'adopter_id',
-                'pet_id',
-            ]);
+          
         });
     }
 

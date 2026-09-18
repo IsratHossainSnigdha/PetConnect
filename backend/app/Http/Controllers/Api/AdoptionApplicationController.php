@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 
 class AdoptionApplicationController extends Controller
 {
@@ -19,7 +20,9 @@ class AdoptionApplicationController extends Controller
         $user = $request->user();
 
         /*
-        | Basic SQL with JOIN
+        |--------------------------------------------------------------------------
+        | Get applications belonging to the logged-in adopter
+        |--------------------------------------------------------------------------
         |
         | applications
         |      JOIN pets
@@ -37,7 +40,7 @@ class AdoptionApplicationController extends Controller
                 applications.created_at,
 
                 pets.name AS petName,
-                pets.type,
+                pets.type AS petType,
                 pets.breed,
                 pets.age,
                 pets.gender,
@@ -76,10 +79,9 @@ class AdoptionApplicationController extends Controller
     public function pets()
     {
         /*
-        | Basic SQL with JOIN
-        |
-        | Only pets with status = available
-        | are shown in the Create Application modal.
+        |--------------------------------------------------------------------------
+        | Get only pets currently available for adoption
+        |--------------------------------------------------------------------------
         */
 
         $pets = DB::select(
@@ -128,7 +130,9 @@ class AdoptionApplicationController extends Controller
         $user = $request->user();
 
         /*
+        |--------------------------------------------------------------------------
         | Validate pet ID
+        |--------------------------------------------------------------------------
         */
 
         $validated = $request->validate([
@@ -140,180 +144,174 @@ class AdoptionApplicationController extends Controller
 
         $petId = $validated['pet_id'];
 
-
         /*
         |--------------------------------------------------------------------------
-        | CHECK PET EXISTS
-        |--------------------------------------------------------------------------
-        */
-
-        $pet = DB::selectOne(
-            "
-            SELECT
-                id,
-                name,
-                status,
-                shelter_id
-
-            FROM pets
-
-            WHERE id = ?
-            ",
-            [$petId]
-        );
-
-        if (!$pet) {
-            return response()->json([
-                'message' => 'Pet not found.'
-            ], 404);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK PET IS AVAILABLE
-        |--------------------------------------------------------------------------
-        */
-
-        if ($pet->status !== 'available') {
-            return response()->json([
-                'message' =>
-                    'This pet is not currently available for adoption.'
-            ], 422);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK DUPLICATE APPLICATION
-        |--------------------------------------------------------------------------
-        */
-
-        $existingApplication = DB::selectOne(
-            "
-            SELECT
-                id,
-                status
-
-            FROM applications
-
-            WHERE adopter_id = ?
-              AND pet_id = ?
-              AND status IN (?, ?)
-
-            LIMIT 1
-            ",
-            [
-                $user->id,
-                $petId,
-                'Pending',
-                'Approved'
-            ]
-        );
-
-        if ($existingApplication) {
-            return response()->json([
-                'message' =>
-                    'You have already applied for this pet.'
-            ], 422);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | INSERT APPLICATION
-        |--------------------------------------------------------------------------
-        */
-
-        DB::insert(
-            "
-            INSERT INTO applications
-            (
-                adopter_id,
-                pet_id,
-                status,
-                created_at,
-                updated_at
-            )
-
-            VALUES
-            (
-                ?,
-                ?,
-                ?,
-                NOW(),
-                NOW()
-            )
-            ",
-            [
-                $user->id,
-                $petId,
-                'Pending'
-            ]
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET CREATED APPLICATION
+        | Call stored procedure
         |--------------------------------------------------------------------------
         |
-        | This JOIN gets the pet and shelter information
-        | immediately after creating the application.
+        | The procedure:
+        |
+        | 1. Checks whether the pet exists.
+        | 2. Checks whether the pet is available.
+        | 3. Checks whether the adopter already has a pending
+        |    application for the same pet.
+        | 4. Creates the application.
+        | 5. Returns the new application ID.
         |
         */
 
-        $application = DB::selectOne(
-            "
-            SELECT
-                applications.id,
-                applications.adopter_id,
-                applications.pet_id,
-                applications.status,
-                applications.created_at,
+        try {
 
-                pets.name AS petName,
-                pets.type,
-                pets.breed,
+            $procedureResult = DB::select(
+                'CALL create_adoption_application(?, ?)',
+                [
+                    $user->id,
+                    $petId
+                ]
+            );
 
-                shelters.name AS shelter
+            /*
+            |--------------------------------------------------------------------------
+            | Get procedure result
+            |--------------------------------------------------------------------------
+            */
 
-            FROM applications
+            $result = $procedureResult[0] ?? null;
 
-            INNER JOIN pets
-                ON applications.pet_id = pets.id
+            /*
+            |--------------------------------------------------------------------------
+            | Procedure returned no result
+            |--------------------------------------------------------------------------
+            */
 
-            INNER JOIN shelters
-                ON pets.shelter_id = shelters.id
+            if (!$result) {
+                return response()->json([
+                    'message' =>
+                        'Unable to create adoption application.'
+                ], 500);
+            }
 
-            WHERE applications.adopter_id = ?
-              AND applications.pet_id = ?
+            /*
+            |--------------------------------------------------------------------------
+            | Procedure returned an error
+            |--------------------------------------------------------------------------
+            */
 
-            ORDER BY applications.id DESC
+            if (
+                isset($result->result) &&
+                $result->result === 'error'
+            ) {
+                return response()->json([
+                    'message' =>
+                        $result->message
+                        ?? 'Unable to create adoption application.'
+                ], 422);
+            }
 
-            LIMIT 1
-            ",
-            [
-                $user->id,
-                $petId
-            ]
-        );
+            /*
+            |--------------------------------------------------------------------------
+            | Make sure application ID was returned
+            |--------------------------------------------------------------------------
+            */
 
+            if (
+                !isset($result->application_id) ||
+                !$result->application_id
+            ) {
+                return response()->json([
+                    'message' =>
+                        'Application was not created successfully.'
+                ], 500);
+            }
 
-        /*
-        |--------------------------------------------------------------------------
-        | RESPONSE
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | Get the newly-created application
+            |--------------------------------------------------------------------------
+            */
 
-        return response()->json([
-            'message' =>
-                'Application submitted successfully.',
+            $application = DB::selectOne(
+                "
+                SELECT
+                    applications.id,
+                    applications.adopter_id,
+                    applications.pet_id,
+                    applications.status,
+                    applications.created_at,
 
-            'application' =>
-                $application
+                    pets.name AS petName,
+                    pets.type AS petType,
+                    pets.breed,
+                    pets.age,
+                    pets.gender,
+                    pets.description,
+                    pets.image AS petImage,
 
-        ], 201);
+                    shelters.name AS shelter,
+                    shelters.location AS shelterLocation
+
+                FROM applications
+
+                INNER JOIN pets
+                    ON applications.pet_id = pets.id
+
+                INNER JOIN shelters
+                    ON pets.shelter_id = shelters.id
+
+                WHERE applications.id = ?
+                  AND applications.adopter_id = ?
+
+                LIMIT 1
+                ",
+                [
+                    $result->application_id,
+                    $user->id
+                ]
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Application could not be found after creation
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$application) {
+                return response()->json([
+                    'message' =>
+                        'Application was created, but could not be retrieved.'
+                ], 500);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | SUCCESS RESPONSE
+            |--------------------------------------------------------------------------
+            */
+
+            return response()->json([
+                'message' =>
+                    $result->message
+                    ?? 'Application submitted successfully.',
+
+                'application' => $application
+            ], 201);
+
+        } catch (QueryException $e) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | DATABASE ERROR
+            |--------------------------------------------------------------------------
+            |
+            | Do not expose raw database errors to the frontend.
+            |
+            */
+
+            return response()->json([
+                'message' =>
+                    'Unable to create adoption application.'
+            ], 500);
+        }
     }
 
 
@@ -330,7 +328,9 @@ class AdoptionApplicationController extends Controller
         $user = $request->user();
 
         /*
-        | Basic SQL with JOIN
+        |--------------------------------------------------------------------------
+        | Get one application belonging to the logged-in adopter
+        |--------------------------------------------------------------------------
         */
 
         $application = DB::selectOne(
@@ -343,7 +343,7 @@ class AdoptionApplicationController extends Controller
                 applications.created_at,
 
                 pets.name AS petName,
-                pets.type,
+                pets.type AS petType,
                 pets.breed,
                 pets.age,
                 pets.gender,
@@ -374,7 +374,6 @@ class AdoptionApplicationController extends Controller
             ]
         );
 
-
         /*
         |--------------------------------------------------------------------------
         | APPLICATION NOT FOUND
@@ -388,10 +387,9 @@ class AdoptionApplicationController extends Controller
             ], 404);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | RESPONSE
+        | SUCCESS RESPONSE
         |--------------------------------------------------------------------------
         */
 
@@ -400,3 +398,4 @@ class AdoptionApplicationController extends Controller
         ]);
     }
 }
+
