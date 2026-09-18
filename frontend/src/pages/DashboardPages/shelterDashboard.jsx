@@ -15,9 +15,10 @@ import {
   Plus,
   Bell,
   User,
-  Settings,
+  Settings as SettingsIcon,
   Menu,
   X,
+  PieChart,
 } from "lucide-react";
 
 import "./shelterDashboard.css";
@@ -37,17 +38,18 @@ export default function ShelterDashboard({
     pending: 0
   });
 
+  // Shelter Pet Summary-er jonno state
+  const [petSummary, setPetSummary] = useState(null);
+
   const [pets, setPets] = useState([]);
   const [adoptionRequests, setAdoptionRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  
   const [userData, setUserData] = useState({
     name: "Shelter Staff",
     role: "Administrator"
   });
 
-  
   useEffect(() => {
     const storedUser = localStorage.getItem("petconnect_user");
     if (storedUser) {
@@ -63,7 +65,6 @@ export default function ShelterDashboard({
     }
   }, []);
 
- 
   useEffect(() => {
     const fetchDashboardData = async () => {
       const token = localStorage.getItem("petconnect_token");
@@ -81,14 +82,24 @@ export default function ShelterDashboard({
           setPets(response.data.pets);
           setAdoptionRequests(response.data.adoptionRequests);
           
-          
           localStorage.setItem('cached_shelter_stats', JSON.stringify(response.data.stats));
           localStorage.setItem('cached_shelter_pets', JSON.stringify(response.data.pets));
         }
+
+        // Fetch Pet Summary API
+        const summaryResponse = await axios.get("http://127.0.0.1:8000/api/shelter/pets/summary", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+        if (summaryResponse.data) {
+          setPetSummary(summaryResponse.data);
+        }
+
       } catch (error) {
         console.error("API Fetch Error, falling back to cache:", error);
         
-       
         const cachedStats = localStorage.getItem('cached_shelter_stats');
         const cachedPets = localStorage.getItem('cached_shelter_pets');
 
@@ -307,7 +318,7 @@ export default function ShelterDashboard({
             </button>
 
             <button className="sidebar-item" onClick={() => goTo("/settings")} type="button">
-              <Settings size={18} />
+              <SettingsIcon size={18} />
               <span>Settings</span>
             </button>
 
@@ -348,6 +359,22 @@ export default function ShelterDashboard({
               ))}
             </section>
 
+            {/* PET SUMMARY CARD */}
+            {petSummary && (
+              <div className="dashboard-card" style={{ marginBottom: '20px', padding: '15px 20px' }}>
+                <div className="card-header" style={{ marginBottom: '10px' }}>
+                  <h2><PieChart size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />Shelter Pet Overview Summary</h2>
+                </div>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                  <div><strong>Shelter ID:</strong> {petSummary.shelter_id}</div>
+                  <div><strong>Total Registered:</strong> {petSummary.total_pets}</div>
+                  <div><strong>Available:</strong> {petSummary.available_count}</div>
+                  <div><strong>Pending:</strong> {petSummary.pending_count}</div>
+                  <div><strong>Adopted:</strong> {petSummary.adopted_count}</div>
+                </div>
+              </div>
+            )}
+
             {/* CONTENT GRID */}
             <div className="content-grid">
               {/* LEFT COLUMN */}
@@ -371,7 +398,7 @@ export default function ShelterDashboard({
                         </tr>
                       </thead>
                       <tbody>
-                        {pets.length > 0 ? (
+                        {pets && pets.length > 0 ? (
                           pets.map((pet, index) => (
                             <tr key={pet.id || index}>
                               <td>
@@ -419,7 +446,7 @@ export default function ShelterDashboard({
                     <h2>Recent Adoption Requests</h2>
                   </div>
 
-                  {adoptionRequests.length > 0 ? (
+                  {adoptionRequests && adoptionRequests.length > 0 ? (
                     adoptionRequests.map((request, index) => (
                       <div className="request-item" key={index}>
                         <div className="request-user">
@@ -433,7 +460,7 @@ export default function ShelterDashboard({
                         </div>
 
                         <div className="request-right">
-                          <span className={`status ${request.status.toLowerCase()}`}>
+                          <span className={`status ${request.status ? request.status.toLowerCase() : ''}`}>
                             {request.status}
                           </span>
                           <small>{request.date}</small>
@@ -467,7 +494,8 @@ export default function ShelterDashboard({
                     </button>
 
                     <button className="quick-action" onClick={() => goTo("/settings")} type="button">
-                      <Settings size={20} />
+                      <SettingsIcon size={20} />
+                      <strong>Settings</strong>
                       <span>Manage account settings</span>
                     </button>
                   </div>

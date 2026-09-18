@@ -213,8 +213,8 @@ Route::middleware('auth:sanctum')->group(function () {
     */
 
     Route::get('/shelter/dashboard', [
-        ApiShelterController::class,
-        'dashboardStats'
+        PetController::class,
+        'dashboard'
     ]);
 
 
@@ -223,6 +223,11 @@ Route::middleware('auth:sanctum')->group(function () {
     | SHELTER PET MANAGEMENT
     |--------------------------------------------------------------------------
     */
+
+    Route::get('/shelter/pets/summary', [
+        PetController::class,
+        'getShelterPetSummary'
+    ]);
 
     Route::get('/shelter/pets', [
         PetController::class,

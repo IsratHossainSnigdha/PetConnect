@@ -29,8 +29,22 @@ export default function AddPet({ darkMode }) {
 
     const token = localStorage.getItem("petconnect_token");
 
+    // 1. LocalStorage theke logged-in user-er shelter_id ber kore nao
+    const storedUser = localStorage.getItem("petconnect_user");
+    let shelterId = "";
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        shelterId = parsedUser.shelter_id || parsedUser.id; // tomar database column onujayi hobe
+      } catch (err) {
+        console.error("Error parsing user data:", err);
+      }
+    }
+
+    // 2. FormData ar shelter_id eksathe payload-e add koro
     const payload = {
       ...formData,
+      shelter_id: shelterId, // <--- Eta add kora holo
       image: formData.image.trim() !== "" ? formData.image : null,
     };
 
@@ -44,8 +58,6 @@ export default function AddPet({ darkMode }) {
       });
 
       console.log("Pet added successfully:", response.data);
-      
-     
       navigate("/dashboard/shelter");
     } catch (error) {
       console.error("Error adding pet:", error.response?.data);

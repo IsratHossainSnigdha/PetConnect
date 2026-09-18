@@ -57,7 +57,7 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
+        $credentials =$request->validate([
             'email'    => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
@@ -89,7 +89,7 @@ class AuthController extends Controller
         | to discover which email addresses are registered. That leak has a
         | name: USER ENUMERATION.
         */
-        if (! $row || ! Hash::check($credentials['password'], $row->password)) {
+        if (! $row || ! Hash::check($credentials['password'],$row->password)) {
             throw ValidationException::withMessages([
                 'email' => ['These credentials do not match our records.'],
             ]);
@@ -97,8 +97,7 @@ class AuthController extends Controller
 
         // STEP 3: issue the API token (see the note at the top of this file
         // for why this one step is not raw SQL).
-        $user  = User::find($row->id);
-        $token = $user->createToken('petconnect-' . $row->role)->plainTextToken;
+        $user  = User::find($row->id);$token = $user->createToken('petconnect-' .$row->role)->plainTextToken;
 
         // Fetch the full row to return, without the password hash in it.
         $safeUser = DB::selectOne(
@@ -116,6 +115,57 @@ class AuthController extends Controller
     }
 
     /**
+     * REGISTER SHELTER STAFF (Existing Shelter) -> POST /api/auth/staff/register
+     */
+    public function registerStaff(Request $request)
+    {
+        // Validate input and ensure the shelter_id actually exists in the shelters table
+        $validated =$request->validate([
+            'name'       => ['required', 'string', 'max:255'],
+            'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password'   => ['required', 'string', 'min:6'],
+            'shelter_id' => ['required', 'exists:shelters,id'], // Foreign key existence check
+        ], [
+            'shelter_id.exists'   => 'The selected shelter does not exist in our database. Please select a valid shelter.',
+            'shelter_id.required' => 'A shelter must be selected for shelter staff accounts.',
+        ]);
+
+        // Insert the staff record using raw SQL transaction for safety
+        $newUserId = DB::transaction(function () use ($validated) {
+            DB::insert(
+                "INSERT INTO users (name, email, password, role, shelter_id, created_at, updated_at)
+                 VALUES (?, ?, ?, 'shelter_staff', ?, NOW(), NOW())",
+                [
+                    $validated['name'],$validated['email'],
+                    Hash::make($validated['password']),$validated['shelter_id'],
+                ]
+            );
+
+            return DB::getPdo()->lastInsertId();
+        });
+
+        // Issue token
+        $user  = User::find($newUserId);
+        $token =$user->createToken('petconnect-shelter_staff')->plainTextToken;
+
+        // Fetch user with shelter details
+        $safeUser = DB::selectOne(
+            "SELECT users.id, users.name, users.email, users.role, users.shelter_id,
+                    shelters.name AS shelter_name, shelters.status AS shelter_status
+             FROM users
+             LEFT JOIN shelters ON shelters.id = users.shelter_id
+             WHERE users.id = ?",
+            [$newUserId]
+        );
+
+        return response()->json([
+            'message' => 'Shelter staff account created successfully.',
+            'token'   => $token,
+            'user'    => $safeUser,
+        ], 201);
+    }
+
+    /**
      * CURRENT USER  ->  GET /api/auth/me
      *
      * Reachable only through the auth:sanctum middleware, which reads the
@@ -124,7 +174,7 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
-        $id = $request->user()->id;
+        $id =$request->user()->id;
 
         /*
         | A LEFT JOIN so shelter staff also get their shelter's details.
@@ -141,7 +191,7 @@ class AuthController extends Controller
                  users.id, users.name, users.username, users.email,
                  users.phone, users.address, users.role, users.shelter_id,
                  users.password_changed_at, users.created_at, users.updated_at,
-                 shelters.name     AS shelter_name,
+                 shelters.name    AS shelter_name,
                  shelters.location AS shelter_location
              FROM users
              LEFT JOIN shelters ON shelters.id = users.shelter_id
@@ -160,13 +210,10 @@ class AuthController extends Controller
      */
     public function updateProfile(Request $request)
     {
-        $id = $request->user()->id;
+        $id =$request->user()->id;
 
-        $validated = $request->validate([
-            'name'     => ['required', 'regex:/^[A-Za-z\s.\'-]+$/', 'max:255'],
-            'username' => ['nullable', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255'],
-            'phone'    => ['nullable', 'regex:/^(?:\+88|01)?\d{11}$/'],
+        $validated =$request->validate([
+            'name'     => ['required', 'regex:/^[A-Za-z\s.\'-]+$/', 'max:255'],             'username' => ['nullable', 'string', 'max:255'],             'email'    => ['required', 'email', 'max:255'],             'phone'    => ['nullable', 'regex:/^(?:\+88\vert{}01)?\d{11}$/'],
             'address'  => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -187,8 +234,8 @@ class AuthController extends Controller
         );
 
         $errors = [];
-        if ($clash->email_taken > 0)    { $errors['email'] = ['The email has already been taken.']; }
-        if ($clash->username_taken > 0) { $errors['username'] = ['The username has already been taken.']; }
+        if ($clash->email_taken > 0)    {$errors['email'] = ['The email has already been taken.']; }
+        if ($clash->username_taken > 0) {$errors['username'] = ['The username has already been taken.']; }
 
         if ($errors) {
             return response()->json([
@@ -198,7 +245,7 @@ class AuthController extends Controller
         }
 
         /*
-        |     UPDATE users SET ... WHERE id = ?;
+        |    UPDATE users SET ... WHERE id = ?;
         |
         | Notice `role` is NOT in this list, deliberately. If it were, any
         | logged-in adopter could send {"role":"platform_admin"} and promote
@@ -218,10 +265,8 @@ class AuthController extends Controller
                  updated_at = NOW()
              WHERE id = ?",
             [
-                $validated['name'],
-                $validated['username'] ?? null,
-                $validated['email'],
-                $validated['phone']    ?? null,
+                $validated['name'],$validated['username'] ?? null,
+                $validated['email'],$validated['phone']    ?? null,
                 $validated['address']  ?? null,
                 $id,
             ]
@@ -243,10 +288,10 @@ class AuthController extends Controller
      */
     public function updatePassword(Request $request)
     {
-        $user = $request->user();
-        $id   = $user->id;
+        $user =$request->user();
+        $id   =$user->id;
 
-        $validated = $request->validate([
+        $validated =$request->validate([
             // Asking for the current password is not about identifying you -
             // you are already logged in. It stops somebody who walked up to an
             // unlocked laptop from locking the real owner out of the account.
@@ -257,7 +302,7 @@ class AuthController extends Controller
         // Read the stored hash so we can compare against it.
         $row = DB::selectOne("SELECT password FROM users WHERE id = ?", [$id]);
 
-        if (! Hash::check($validated['current_password'], $row->password)) {
+        if (! Hash::check($validated['current_password'],$row->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['Your current password is incorrect.'],
             ]);
@@ -265,7 +310,7 @@ class AuthController extends Controller
 
         // Refuse a "change" to the same password - otherwise the timestamp
         // would move and wrongly suggest the credential had been rotated.
-        if (Hash::check($validated['password'], $row->password)) {
+        if (Hash::check($validated['password'],$row->password)) {
             throw ValidationException::withMessages([
                 'password' => ['The new password must be different from your current one.'],
             ]);
@@ -283,7 +328,7 @@ class AuthController extends Controller
             "UPDATE users
              SET password = ?, password_changed_at = NOW(), updated_at = NOW()
              WHERE id = ?",
-            [Hash::make($validated['password']), $id]
+            [Hash::make($validated['password']),$id]
         );
 
         /*
@@ -297,17 +342,17 @@ class AuthController extends Controller
         | This is raw SQL because it is an ordinary DELETE - no token hashing
         | is involved in removing rows.
         |
-        |     DELETE FROM personal_access_tokens
-        |     WHERE tokenable_id = ? AND id <> ?;
+        |    DELETE FROM personal_access_tokens
+        |    WHERE tokenable_id = ? AND id <> ?;
         */
-        $currentTokenId = $user->currentAccessToken()->id;
+        $currentTokenId =$user->currentAccessToken()->id;
 
         $revoked = DB::delete(
             "DELETE FROM personal_access_tokens
              WHERE tokenable_id = ?
                AND tokenable_type = ?
                AND id <> ?",
-            [$id, User::class, $currentTokenId]
+            [$id, User::class,$currentTokenId]
         );
 
         return response()->json([
@@ -327,13 +372,13 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         /*
-        |     DELETE FROM personal_access_tokens WHERE id = ?;
+        |    DELETE FROM personal_access_tokens WHERE id = ?;
         |
         | Deleting the row is what actually makes the token stop working.
         | Merely dropping it from the browser would leave a valid token alive
         | in the database until it expired.
         */
-        $tokenId = $request->user()->currentAccessToken()->id;
+        $tokenId =$request->user()->currentAccessToken()->id;
 
         DB::delete("DELETE FROM personal_access_tokens WHERE id = ?", [$tokenId]);
 

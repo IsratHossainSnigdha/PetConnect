@@ -42,6 +42,9 @@ import AdminShelters from "./pages/ShelterPages/adminShelters";
 import ShelterDetail from "./pages/ShelterPages/shelterDetail";
 import AdopterProfile from "./pages/ProfilePages/adopterProfile";
 
+// Settings Page
+import Settings from "./pages/Settings";
+
 export default function App() {
   // ================================
   // USER
@@ -218,6 +221,21 @@ export default function App() {
         element={
           <RequireAuth>
             <MyProfile
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </RequireAuth>
+        }
+      />
+
+      {/* =========================
+          SETTINGS ROUTE
+      ========================= */}
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <Settings
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
