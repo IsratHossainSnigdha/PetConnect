@@ -1,0 +1,889 @@
+* {
+  box-sizing: border-box;
+}
+
+.complaints-container {
+  width: 100%;
+  height: 100vh;
+
+  display: flex;
+
+  background: #f5f7fa;
+  color: #102c45;
+
+  overflow: hidden;
+}
+
+/* ========================================
+   SIDEBAR
+======================================== */
+
+.sidebar {
+  width: 245px;
+  min-width: 245px;
+  height: 100vh;
+
+  flex-shrink: 0;
+
+  background: white;
+  border-right: 1px solid #e5e7eb;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 25px 16px;
+
+  position: relative;
+  z-index: 10;
+}
+
+/* LOGO */
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 10px;
+  margin-bottom: 40px;
+
+  cursor: pointer;
+}
+
+.logo-icon {
+  width: 42px;
+  height: 42px;
+
+  min-width: 42px;
+
+  border-radius: 50%;
+
+  background: #dd6b20;
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: 800;
+
+  line-height: 0.95;
+
+  color: #102c45;
+}
+
+.logo-text span {
+  font-size: 18px;
+}
+
+/* MENU */
+
+.sidebar-content {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+
+  color: #94a3b8;
+
+  text-transform: uppercase;
+
+  padding: 0 14px;
+  margin-bottom: 5px;
+}
+
+.nav-item,
+.logout-btn {
+  width: 100%;
+
+  padding: 12px 14px;
+
+  border: none;
+  background: transparent;
+
+  color: #64748b;
+
+  border-radius: 10px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: #fff3eb;
+  color: #dd6b20;
+}
+
+.nav-item.active {
+  background: #dd6b20;
+  color: white;
+
+  box-shadow:
+    0 5px 15px rgba(221, 107, 32, 0.25);
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.logout-btn:hover {
+  background: #fff3eb;
+  color: #dd6b20;
+}
+
+/* ========================================
+   MAIN
+======================================== */
+
+.main-wrapper {
+  flex: 1;
+
+  min-width: 0;
+
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+/* ========================================
+   TOPBAR
+======================================== */
+
+.topbar {
+  width: 100%;
+  height: 75px;
+  min-height: 75px;
+
+  background: white;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 32px;
+
+  flex-shrink: 0;
+}
+
+.page-title h1 {
+  font-size: 22px;
+  color: #102c45;
+}
+
+.page-title p {
+  font-size: 13px;
+  color: #64748b;
+
+  margin-top: 4px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-btn,
+.icon-btn {
+  width: 38px;
+  height: 38px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f1f5f9;
+  color: #475569;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.theme-btn:hover,
+.icon-btn:hover {
+  background: #fff3eb;
+  color: #dd6b20;
+}
+
+.profile-btn {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  border: none;
+  background: transparent;
+
+  cursor: pointer;
+
+  padding: 5px 8px;
+
+  border-radius: 10px;
+}
+
+.profile-btn:hover {
+  background: #f8fafc;
+}
+
+.profile-avatar {
+  width: 38px;
+  height: 38px;
+
+  border-radius: 50%;
+
+  background: #dd6b20;
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+
+  text-align: left;
+}
+
+.profile-info strong {
+  font-size: 13px;
+  color: #102c45;
+}
+
+.profile-info span {
+  font-size: 11px;
+  color: #64748b;
+
+  margin-top: 2px;
+}
+
+/* ========================================
+   CONTENT
+======================================== */
+
+.content {
+  flex: 1;
+
+  padding: 30px 35px;
+
+  overflow-y: auto;
+}
+
+/* ========================================
+   HEADER
+======================================== */
+
+.complaints-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 22px;
+}
+
+.complaints-header h2 {
+  font-size: 21px;
+  color: #102c45;
+}
+
+.complaints-header p {
+  font-size: 13px;
+  color: #64748b;
+
+  margin-top: 5px;
+}
+
+.new-complaint-btn {
+  border: none;
+
+  background: #dd6b20;
+  color: white;
+
+  padding: 11px 16px;
+
+  border-radius: 9px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.new-complaint-btn:hover {
+  background: #c65d17;
+}
+
+/* ========================================
+   FORM
+======================================== */
+
+.complaint-form-card,
+.complaints-section {
+  background: white;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  margin-bottom: 22px;
+
+  overflow: hidden;
+}
+
+.complaint-form-card {
+  padding: 24px;
+}
+
+.form-header {
+  margin-bottom: 20px;
+}
+
+.form-header h3 {
+  font-size: 17px;
+  color: #102c45;
+}
+
+.form-header p {
+  font-size: 12px;
+  color: #64748b;
+
+  margin-top: 4px;
+}
+
+.form-group {
+  margin-bottom: 17px;
+}
+
+.form-group label {
+  display: block;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  color: #334155;
+
+  margin-bottom: 7px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+
+  border: 1px solid #dbe1e8;
+
+  border-radius: 9px;
+
+  padding: 10px 12px;
+
+  outline: none;
+
+  font-size: 13px;
+
+  background: white;
+  color: #102c45;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #dd6b20;
+
+  box-shadow:
+    0 0 0 3px rgba(221, 107, 32, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 10px;
+
+  margin-top: 20px;
+}
+
+.cancel-btn,
+.submit-btn {
+  padding: 10px 17px;
+
+  border-radius: 8px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.cancel-btn {
+  border: 1px solid #dbe1e8;
+
+  background: white;
+
+  color: #475569;
+}
+
+.submit-btn {
+  border: none;
+
+  background: #dd6b20;
+
+  color: white;
+}
+
+.submit-btn:hover {
+  background: #c65d17;
+}
+
+/* ========================================
+   COMPLAINT LIST
+======================================== */
+
+.section-header {
+  padding: 20px 24px;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header h3 {
+  font-size: 17px;
+  color: #102c45;
+}
+
+.section-header p {
+  font-size: 12px;
+  color: #64748b;
+
+  margin-top: 4px;
+}
+
+.complaint-count {
+  font-size: 11px;
+  font-weight: 700;
+
+  color: #64748b;
+
+  background: #f1f5f9;
+
+  padding: 6px 10px;
+
+  border-radius: 20px;
+}
+
+.complaints-list {
+  width: 100%;
+}
+
+.complaint-row {
+  display: flex;
+  align-items: center;
+
+  gap: 15px;
+
+  padding: 20px 24px;
+
+  border-bottom: 1px solid #eef2f5;
+}
+
+.complaint-row:last-child {
+  border-bottom: none;
+}
+
+.complaint-icon {
+  width: 43px;
+  height: 43px;
+
+  min-width: 43px;
+
+  border-radius: 11px;
+
+  background: #fff3eb;
+  color: #dd6b20;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.complaint-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.complaint-details h4 {
+  font-size: 14px;
+
+  color: #102c45;
+
+  margin-bottom: 5px;
+}
+
+.complaint-details p {
+  font-size: 12px;
+
+  color: #64748b;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  max-width: 700px;
+}
+
+.complaint-meta {
+  display: block;
+
+  font-size: 10px;
+
+  color: #94a3b8;
+
+  margin-top: 6px;
+}
+
+.complaint-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 6px 10px;
+
+  border-radius: 20px;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.complaint-status.pending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.complaint-status.resolved {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.complaint-status.rejected {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ========================================
+   EMPTY STATE
+======================================== */
+
+.empty-state {
+  padding: 55px 20px;
+
+  text-align: center;
+}
+
+.empty-icon {
+  width: 50px;
+  height: 50px;
+
+  margin: 0 auto 12px;
+
+  border-radius: 50%;
+
+  background: #fff3eb;
+  color: #dd6b20;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state h4 {
+  font-size: 15px;
+
+  color: #102c45;
+}
+
+.empty-state p {
+  font-size: 12px;
+
+  color: #64748b;
+
+  margin-top: 5px;
+}
+
+/* ========================================
+   DARK MODE
+======================================== */
+
+.complaints-container.dark {
+  background: #09151e;
+  color: white;
+}
+
+.dark .sidebar,
+.dark .topbar,
+.dark .complaint-form-card,
+.dark .complaints-section {
+  background: #1e303d;
+
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .logo-text,
+.dark .page-title h1,
+.dark .complaints-header h2,
+.dark .form-header h3,
+.dark .section-header h3,
+.dark .complaint-details h4,
+.dark .empty-state h4 {
+  color: white;
+}
+
+.dark .page-title p,
+.dark .complaints-header p,
+.dark .form-header p,
+.dark .section-header p,
+.dark .complaint-details p,
+.dark .complaint-meta {
+  color: #cbd5e1;
+}
+
+.dark .form-group label {
+  color: #e2e8f0;
+}
+
+.dark .form-group input,
+.dark .form-group select,
+.dark .form-group textarea {
+  background: #0f172a;
+
+  color: white;
+
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .form-group input::placeholder,
+.dark .form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+.dark .complaint-row {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.dark .theme-btn,
+.dark .icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+
+  color: #cbd5e1;
+}
+
+.dark .profile-info strong {
+  color: white;
+}
+
+.dark .profile-info span {
+  color: #cbd5e1;
+}
+
+.dark .profile-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .cancel-btn {
+  background: #1e303d;
+
+  color: #cbd5e1;
+
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .complaint-count {
+  background: rgba(255, 255, 255, 0.08);
+
+  color: #cbd5e1;
+}
+
+/* ========================================
+   RESPONSIVE
+======================================== */
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 200px;
+    min-width: 200px;
+  }
+
+  .content {
+    padding: 25px;
+  }
+
+  .topbar {
+    padding: 0 25px;
+  }
+
+  .complaint-row {
+    align-items: flex-start;
+  }
+
+  .complaint-status {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: 75px;
+    min-width: 75px;
+
+    padding: 20px 10px;
+  }
+
+  .logo-text,
+  .sidebar-label,
+  .nav-item span,
+  .logout-btn span {
+    display: none;
+  }
+
+  .sidebar-logo {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav-item,
+  .logout-btn {
+    justify-content: center;
+    padding: 12px;
+  }
+
+  .topbar {
+    padding: 0 15px;
+  }
+
+  .profile-info {
+    display: none;
+  }
+
+  .content {
+    padding: 20px 15px;
+  }
+
+  .complaints-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 15px;
+  }
+
+  .new-complaint-btn {
+    width: 100%;
+
+    justify-content: center;
+  }
+
+  .section-header {
+    align-items: flex-start;
+
+    gap: 12px;
+
+    flex-direction: column;
+  }
+
+  .complaint-row {
+    flex-wrap: wrap;
+
+    padding: 17px;
+  }
+
+  .complaint-details {
+    width: calc(100% - 58px);
+  }
+
+  .complaint-status {
+    margin-left: 58px;
+  }
+
+  /* ========================================
+   ERROR MESSAGE
+======================================== */
+
+.complaint-error {
+  width: 100%;
+
+  margin-bottom: 20px;
+
+  padding: 12px 15px;
+
+  border-radius: 9px;
+
+  background: #fef2f2;
+
+  border: 1px solid #fecaca;
+
+  color: #dc2626;
+
+  font-size: 13px;
+
+  font-weight: 600;
+}
+
+.submit-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+.dark .complaint-error {
+  background: rgba(220, 38, 38, 0.12);
+
+  border-color: rgba(248, 113, 113, 0.2);
+
+  color: #fca5a5;
+}
+}
