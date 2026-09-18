@@ -142,12 +142,6 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     | USER PROFILE
     |--------------------------------------------------------------------------
-    |
-    | Available for all authenticated users:
-    | - Adopter
-    | - Shelter
-    | - Platform Admin
-    |
     */
 
     Route::get('/user/profile', [
@@ -187,6 +181,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/adopter/applications', [
         AdoptionApplicationController::class,
         'store'
+    ]);
+
+    // IMPORTANT:
+    // This route MUST come before /adopter/applications/{id}
+    Route::get('/adopter/applications/process', [
+        AdoptionApplicationController::class,
+        'processRequests'
     ]);
 
     Route::get('/adopter/applications/{id}', [
@@ -315,13 +316,6 @@ Route::middleware([
     |--------------------------------------------------------------------------
     | ADMIN SHELTER MANAGEMENT
     |--------------------------------------------------------------------------
-    |
-    | GET    /api/admin/shelters
-    | POST   /api/admin/shelters
-    | GET    /api/admin/shelters/{shelter}
-    | PUT    /api/admin/shelters/{shelter}
-    | DELETE /api/admin/shelters/{shelter}
-    |
     */
 
     Route::apiResource(
@@ -334,11 +328,6 @@ Route::middleware([
     |--------------------------------------------------------------------------
     | ADMIN LIST
     |--------------------------------------------------------------------------
-    |
-    | Used for assigning an admin to a shelter.
-    |
-    | GET /api/admin/admins
-    |
     */
 
     Route::get('/admins', [
