@@ -49,7 +49,7 @@ export default function LoginPage() {
       if (user.role === 'platform_admin') {
         navigate('/dashboard/admin');
       } else if (user.role === 'shelter_staff') {
-        navigate('/dashboard/shelter');
+        navigate("/shelter/dashboard");
       } else {
         navigate('/dashboard/adopter');
       }
