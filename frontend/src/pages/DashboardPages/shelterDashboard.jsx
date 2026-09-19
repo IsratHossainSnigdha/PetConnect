@@ -1,508 +1,1211 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 import {
-  Dog,
-  Sun,
-  Moon,
-  LogOut,
-  LayoutDashboard,
-  PawPrint,
-  Heart,
-  Clock,
-  CheckCircle,
-  Plus,
-  Bell,
-  User,
-  Settings as SettingsIcon,
-  Menu,
-  X,
-  PieChart,
+    Dog,
+    LayoutDashboard,
+    PawPrint,
+    User,
+    Bell,
+    LogOut,
+    Sun,
+    Moon,
+    Menu,
+    X,
+    Clock,
+    CheckCircle,
+    XCircle,
+    ChevronRight,
 } from "lucide-react";
+
+import { apiFetch } from "../../api/client";
+import { logout } from "../../api/auth";
 
 import "./shelterDashboard.css";
 
 export default function ShelterDashboard({
-  darkMode,
-  toggleDarkMode,
+    darkMode,
+    toggleDarkMode,
 }) {
-  const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+    const navigate = useNavigate();
 
-  const [stats, setStats] = useState({
-    total: 0,
-    available: 0,
-    treatment: 0,
-    adopted: 0,
-    pending: 0
-  });
+    // ========================================
+    // STATE
+    // ========================================
 
-  // Shelter Pet Summary-er jonno state
-  const [petSummary, setPetSummary] = useState(null);
+    const [dashboardData, setDashboardData] = useState({
+        stats: {
+            total: 0,
+            available: 0,
+            treatment: 0,
+            adopted: 0,
+            pending: 0,
+        },
+        pets: [],
+        adoptionRequests: [],
+    });
 
-  const [pets, setPets] = useState([]);
-  const [adoptionRequests, setAdoptionRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+    const [notifications, setNotifications] = useState([]);
 
-  const [userData, setUserData] = useState({
-    name: "Shelter Staff",
-    role: "Administrator"
-  });
+    const [loading, setLoading] = useState(true);
+    const [notificationLoading, setNotificationLoading] =
+        useState(false);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("petconnect_user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUserData({
-          name: parsedUser.name || parsedUser.username || "Shelter Staff",
-          role: parsedUser.role || parsedUser.user_type || "Administrator"
-        });
-      } catch (e) {
-        console.error("Error parsing user data from localStorage", e);
-      }
-    }
-  }, []);
+    const [error, setError] = useState("");
+    const [notificationError, setNotificationError] =
+        useState("");
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      const token = localStorage.getItem("petconnect_token");
-      
-      try {
-        const response = await axios.get("http://127.0.0.1:8000/api/shelter/dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        });
+    const [processingId, setProcessingId] = useState(null);
 
-        if (response.data) {
-          setStats(response.data.stats);
-          setPets(response.data.pets);
-          setAdoptionRequests(response.data.adoptionRequests);
-          
-          localStorage.setItem('cached_shelter_stats', JSON.stringify(response.data.stats));
-          localStorage.setItem('cached_shelter_pets', JSON.stringify(response.data.pets));
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // ========================================
+    // LOAD DASHBOARD
+    // ========================================
+
+    useEffect(() => {
+        loadDashboard();
+        loadNotifications();
+    }, []);
+
+    // ========================================
+    // LOAD DASHBOARD DATA
+    // ========================================
+
+    const loadDashboard = async () => {
+        try {
+            setLoading(true);
+            setError("");
+
+            const data = await apiFetch(
+                "/shelter/dashboard"
+            );
+
+            setDashboardData({
+                stats: {
+                    total: data?.stats?.total ?? 0,
+                    available:
+                        data?.stats?.available ?? 0,
+                    treatment:
+                        data?.stats?.treatment ?? 0,
+                    adopted:
+                        data?.stats?.adopted ?? 0,
+                    pending:
+                        data?.stats?.pending ?? 0,
+                },
+
+                pets: Array.isArray(data?.pets)
+                    ? data.pets
+                    : [],
+
+                adoptionRequests:
+                    Array.isArray(
+                        data?.adoptionRequests
+                    )
+                        ? data.adoptionRequests
+                        : [],
+            });
+        } catch (err) {
+            console.error(
+                "Failed to load shelter dashboard:",
+                err
+            );
+
+            setError(
+                err?.message ||
+                    "Failed to load dashboard."
+            );
+        } finally {
+            setLoading(false);
         }
-
-        // Fetch Pet Summary API
-        const summaryResponse = await axios.get("http://127.0.0.1:8000/api/shelter/pets/summary", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        });
-        if (summaryResponse.data) {
-          setPetSummary(summaryResponse.data);
-        }
-
-      } catch (error) {
-        console.error("API Fetch Error, falling back to cache:", error);
-        
-        const cachedStats = localStorage.getItem('cached_shelter_stats');
-        const cachedPets = localStorage.getItem('cached_shelter_pets');
-
-        if (cachedStats) setStats(JSON.parse(cachedStats));
-        if (cachedPets) {
-          const parsedPets = JSON.parse(cachedPets);
-          setPets(parsedPets);
-        }
-      } finally {
-        setLoading(false);
-      }
     };
 
-    fetchDashboardData();
-  }, []);
+    // ========================================
+    // LOAD NOTIFICATIONS
+    // ========================================
 
-  const closeSidebar = () => {
-    setSidebarOpen(false);
-  };
+    const loadNotifications = async () => {
+        try {
+            setNotificationLoading(true);
+            setNotificationError("");
 
-  const goTo = (path) => {
-    closeSidebar();
-    navigate(path);
-  };
+            const data = await apiFetch(
+                "/notifications"
+            );
 
-  const handleLogout = () => {
-    localStorage.removeItem("petconnect_token");
-    localStorage.removeItem("petconnect_user");
-    navigate("/login");
-  };
+            const notificationList = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.notifications)
+                ? data.notifications
+                : [];
 
-  const statsCards = [
-    {
-      title: "Total Pets",
-      value: stats.total,
-      icon: <PawPrint size={24} />,
-      className: "green",
-    },
-    {
-      title: "Available for Adoption",
-      value: stats.available,
-      icon: <Heart size={24} />,
-      className: "blue",
-    },
-    {
-      title: "Pending Requests",
-      value: stats.pending,
-      icon: <Clock size={24} />,
-      className: "orange",
-    },
-    {
-      title: "Adopted",
-      value: stats.adopted,
-      icon: <CheckCircle size={24} />,
-      className: "purple",
-    },
-  ];
+            setNotifications(notificationList);
+        } catch (err) {
+            console.error(
+                "Failed to load notifications:",
+                err
+            );
 
-  return (
-    <>
-      <style>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-          font-family: Arial, Helvetica, sans-serif;
+            setNotificationError(
+                err?.message ||
+                    "Failed to load notifications."
+            );
+        } finally {
+            setNotificationLoading(false);
+        }
+    };
+
+    // ========================================
+    // MARK NOTIFICATION AS READ
+    // ========================================
+
+    const markNotificationAsRead = async (
+        notificationId
+    ) => {
+        try {
+            await apiFetch(
+                `/notifications/${notificationId}/read`,
+                {
+                    method: "PUT",
+                }
+            );
+
+            setNotifications((previous) =>
+                previous.map((notification) =>
+                    notification.id ===
+                    notificationId
+                        ? {
+                              ...notification,
+                              is_read: true,
+                              read_at:
+                                  new Date().toISOString(),
+                          }
+                        : notification
+                )
+            );
+        } catch (err) {
+            console.error(
+                "Failed to mark notification as read:",
+                err
+            );
+        }
+    };
+
+    // ========================================
+    // APPROVE APPLICATION
+    // ========================================
+
+    const handleApprove = async (
+        applicationId
+    ) => {
+        if (!applicationId) return;
+
+        try {
+            setProcessingId(applicationId);
+
+            await apiFetch(
+                `/shelter/applications/${applicationId}/approve`,
+                {
+                    method: "PUT",
+                }
+            );
+
+            await loadDashboard();
+            await loadNotifications();
+        } catch (err) {
+            console.error(
+                "Failed to approve application:",
+                err
+            );
+
+            alert(
+                err?.message ||
+                    "Failed to approve application."
+            );
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    // ========================================
+    // REJECT APPLICATION
+    // ========================================
+
+    const handleReject = async (
+        applicationId
+    ) => {
+        if (!applicationId) return;
+
+        try {
+            setProcessingId(applicationId);
+
+            await apiFetch(
+                `/shelter/applications/${applicationId}/reject`,
+                {
+                    method: "PUT",
+                }
+            );
+
+            await loadDashboard();
+            await loadNotifications();
+        } catch (err) {
+            console.error(
+                "Failed to reject application:",
+                err
+            );
+
+            alert(
+                err?.message ||
+                    "Failed to reject application."
+            );
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    // ========================================
+    // LOGOUT
+    // ========================================
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } finally {
+            navigate("/login");
+        }
+    };
+
+    // ========================================
+    // NAVIGATION
+    // ========================================
+
+    const goTo = (path) => {
+        setSidebarOpen(false);
+        navigate(path);
+    };
+
+    // ========================================
+    // STATUS CLASS
+    // ========================================
+
+    const getStatusClass = (status) => {
+        const normalized =
+            String(status || "")
+                .toLowerCase();
+
+        if (normalized === "approved") {
+            return "status-approved";
         }
 
-        html, body {
-          width: 100%;
-          height: 100%;
-          margin: 0;
-          padding: 0;
-          background: #f0f4f9;
-          color: #102c45;
-          overflow: hidden;
+        if (normalized === "rejected") {
+            return "status-rejected";
         }
 
-        #root {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-        }
+        return "status-pending";
+    };
 
-        .dashboard-container {
-          width: 100vw;
-          height: 100vh;
-          background: linear-gradient(135deg, #e6f2ff, #f9f4ef, #e3f6ee, #f0e6ff, #e8f4f8);
-          background-size: 500% 500%;
-          animation: globalMeshFlow 18s ease infinite;
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
+    // ========================================
+    // FORMAT STATUS
+    // ========================================
 
-        @keyframes globalMeshFlow {
-          0% { background-position: 0% 50%; }
-          25% { background-position: 50% 100%; }
-          50% { background-position: 100% 50%; }
-          75% { background-position: 50% 0%; }
-          100% { background-position: 0% 50%; }
-        }
+    const formatStatus = (status) => {
+        if (!status) return "Pending";
 
-        .dashboard-container::before {
-          content: '';
-          position: absolute;
-          top: -120px;
-          left: -120px;
-          width: 500px;
-          height: 500px;
-          background: rgba(56, 161, 105, 0.12);
-          border-radius: 50%;
-          filter: blur(85px);
-          z-index: 1;
-          animation: floatOrb1 12s ease-in-out infinite alternate;
-        }
+        return (
+            String(status)
+                .charAt(0)
+                .toUpperCase() +
+            String(status)
+                .slice(1)
+                .toLowerCase()
+        );
+    };
 
-        .dashboard-container::after {
-          content: '';
-          position: absolute;
-          bottom: -150px;
-          right: -120px;
-          width: 550px;
-          height: 550px;
-          background: rgba(40, 105, 147, 0.15);
-          border-radius: 50%;
-          filter: blur(95px);
-          z-index: 1;
-          animation: floatOrb2 15s ease-in-out infinite alternate;
-        }
+    // ========================================
+    // UNREAD NOTIFICATIONS
+    // ========================================
 
-        @keyframes floatOrb1 {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-          50% { transform: translate(80px, 100px) scale(1.2) rotate(45deg); }
-          100% { transform: translate(-40px, 60px) scale(0.95) rotate(90deg); }
-        }
+    const unreadCount = notifications.filter(
+        (notification) =>
+            !notification.is_read &&
+            !notification.read_at
+    ).length;
 
-        @keyframes floatOrb2 {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-          50% { transform: translate(-100px, -80px) scale(1.25) rotate(-45deg); }
-          100% { transform: translate(60px, -40px) scale(1.05) rotate(-90deg); }
-        }
+    // ========================================
+    // SIDEBAR
+    // ========================================
 
-        .dashboard-container.dark {
-          background: linear-gradient(135deg, #050d14, #0b1721, #101f2b, #07121a, #09151e);
-          color: white;
-        }
-      `}</style>
+    const sidebarItems = [
+        {
+            label: "Dashboard",
+            icon: <LayoutDashboard size={20} />,
+            path: "/shelter/dashboard",
+        },
+        {
+            label: "Manage Pets",
+            icon: <PawPrint size={20} />,
+            path: "/shelter/pets",
+        },
+        {
+            label: "My Profile",
+            icon: <User size={20} />,
+            path: "/profile",
+        },
+    ];
 
-      <div className={`dashboard-container ${darkMode ? "dark" : ""}`}>
-        {/* ================= NAVBAR ================= */}
-        <nav className="dashboard-navbar">
-          <div className="dashboard-logo" onClick={() => goTo("/")}>
-            <div className="dashboard-logo-icon">
-              <Dog size={24} />
-            </div>
-            <div className="dashboard-logo-text">
-              PET<br />CONNECT
-            </div>
-          </div>
+    // ========================================
+    // LOADING
+    // ========================================
 
-          <div className="navbar-center">Shelter Staff Portal</div>
-
-          <div className="navbar-right">
-            <button
-              className="icon-button mobile-menu"
-              onClick={() => setSidebarOpen((previous) => !previous)}
-              title="Menu"
-              type="button"
+    if (loading) {
+        return (
+            <div
+                className={
+                    darkMode
+                        ? "shelter-dashboard dark"
+                        : "shelter-dashboard"
+                }
             >
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-
-            <button className="icon-button" onClick={toggleDarkMode} title="Toggle Theme" type="button">
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            <button className="icon-button" title="Notifications" type="button">
-              <Bell size={18} />
-            </button>
-
-            <div className="profile-mini">
-              <div className="profile-avatar">
-                <User size={17} />
-              </div>
-              <div className="profile-info">
-                <strong>{userData.name}</strong>
-                <span>{userData.role}</span>
-              </div>
+                <div className="dashboard-loading">
+                    <div className="loading-spinner"></div>
+                    <p>Loading dashboard...</p>
+                </div>
             </div>
-          </div>
-        </nav>
+        );
+    }
 
-        {/* ================= DASHBOARD LAYOUT ================= */}
-        <div className="dashboard-layout">
-          {/* ================= SIDEBAR ================= */}
-          <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-            <div className="sidebar-title">Main Menu</div>
+    // ========================================
+    // RENDER
+    // ========================================
 
-            <button className="sidebar-item active" onClick={() => goTo("/dashboard/shelter")} type="button">
-              <LayoutDashboard size={18} />
-              <span>Dashboard</span>
-            </button>
+    return (
+        <div
+            className={
+                darkMode
+                    ? "shelter-dashboard dark"
+                    : "shelter-dashboard"
+            }
+        >
+            {/* ========================================
+                MOBILE OVERLAY
+            ======================================== */}
 
-            <button className="sidebar-item" onClick={() => goTo("/dashboard/shelter/manage-pets")} type="button">
-              <PawPrint size={18} />
-              <span>Manage Pets</span>
-            </button>
-
-            <div className="sidebar-title account-title">Account</div>
-
-            <button className="sidebar-item" onClick={() => goTo("/profile/shelter")} type="button">
-              <User size={18} />
-              <span>My Profile</span>
-            </button>
-
-            <button className="sidebar-item" onClick={() => goTo("/settings")} type="button">
-              <SettingsIcon size={18} />
-              <span>Settings</span>
-            </button>
-
-            <div className="sidebar-bottom">
-              <button className="sidebar-item logout-item" onClick={handleLogout} type="button">
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            </div>
-          </aside>
-
-          {/* ================= MAIN CONTENT ================= */}
-          <main className="dashboard-main">
-            <section className="welcome-section">
-              <div>
-                <h1>Welcome back, {userData.name}! 👋</h1>
-                <p>Here's what's happening at your shelter today.</p>
-              </div>
-
-              <button className="add-pet-button" onClick={() => goTo("/dashboard/shelter/add-pet")} type="button">
-                <Plus size={18} />
-                Add New Pet
-              </button>
-            </section>
-
-            {/* STATISTICS */}
-            <section className="stats-grid">
-              {statsCards.map((stat, index) => (
-                <div className="stat-card" key={index}>
-                  <div className="stat-text">
-                    <span>{stat.title}</span>
-                    <strong>{stat.value}</strong>
-                  </div>
-                  <div className={`stat-icon ${stat.className}`}>
-                    {stat.icon}
-                  </div>
-                </div>
-              ))}
-            </section>
-
-            {/* PET SUMMARY CARD */}
-            {petSummary && (
-              <div className="dashboard-card" style={{ marginBottom: '20px', padding: '15px 20px' }}>
-                <div className="card-header" style={{ marginBottom: '10px' }}>
-                  <h2><PieChart size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />Shelter Pet Overview Summary</h2>
-                </div>
-                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                  <div><strong>Shelter ID:</strong> {petSummary.shelter_id}</div>
-                  <div><strong>Total Registered:</strong> {petSummary.total_pets}</div>
-                  
-                </div>
-              </div>
+            {sidebarOpen && (
+                <div
+                    className="sidebar-overlay"
+                    onClick={() =>
+                        setSidebarOpen(false)
+                    }
+                />
             )}
 
-            {/* CONTENT GRID */}
-            <div className="content-grid">
-              {/* LEFT COLUMN */}
-              <div>
-                <div className="dashboard-card">
-                  <div className="card-header">
-                    <h2>Recent Pets</h2>
-                    <button className="view-all" onClick={() => goTo("/dashboard/shelter/manage-pets")} type="button">
-                      View All
-                    </button>
-                  </div>
+            {/* ========================================
+                SIDEBAR
+            ======================================== */}
 
-                  <div className="table-wrapper">
-                    <table className="pet-table">
-                      <thead>
-                        <tr>
-                          <th>Pet</th>
-                          <th>Type</th>
-                          <th>Age</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pets && pets.length > 0 ? (
-                          pets.map((pet, index) => (
-                            <tr key={pet.id || index}>
-                              <td>
-                                <div className="pet-info">
-                                  <div className="pet-avatar">
-                                    {pet.image ? (
-                                      <img 
-                                        src={pet.image} 
-                                        alt={pet.name} 
-                                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
-                                      />
-                                    ) : (
-                                      <PawPrint size={17} />
-                                    )}
-                                  </div>
-                                  <span className="pet-name">{pet.name}</span>
-                                </div>
-                              </td>
-                              <td>{pet.type}</td>
-                              <td>{pet.age || 'N/A'}</td>
-                              <td>
-                                <span className={`status ${pet.status ? pet.status.toLowerCase().replace(/\s+/g, '-') : 'available'}`}>
-                                  {pet.status}
+            <aside
+                className={`shelter-sidebar ${
+                    sidebarOpen
+                        ? "sidebar-open"
+                        : ""
+                }`}
+            >
+                <div className="sidebar-header">
+                    <div className="brand">
+                        <div className="brand-icon">
+                            <Dog size={24} />
+                        </div>
+
+                        <span>
+                            PetConnect
+                        </span>
+                    </div>
+
+                    <button
+                        className="mobile-close-button"
+                        onClick={() =>
+                            setSidebarOpen(false)
+                        }
+                    >
+                        <X size={22} />
+                    </button>
+                </div>
+
+                {/* NAVIGATION */}
+
+                <nav className="sidebar-nav">
+                    {sidebarItems.map(
+                        (item) => (
+                            <button
+                                key={item.path}
+                                className={
+                                    item.path ===
+                                    "/shelter/dashboard"
+                                        ? "sidebar-item active"
+                                        : "sidebar-item"
+                                }
+                                onClick={() =>
+                                    goTo(
+                                        item.path
+                                    )
+                                }
+                            >
+                                {item.icon}
+
+                                <span>
+                                    {item.label}
                                 </span>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>
-                              {loading ? "Loading pets..." : "No pets found."}
-                            </td>
-                          </tr>
+                            </button>
+                        )
+                    )}
+                </nav>
+
+                {/* SIDEBAR BOTTOM */}
+
+                <div className="sidebar-bottom">
+                    <button
+                        className="sidebar-item logout-item"
+                        onClick={
+                            handleLogout
+                        }
+                    >
+                        <LogOut size={20} />
+
+                        <span>
+                            Logout
+                        </span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* ========================================
+                MAIN CONTENT
+            ======================================== */}
+
+            <main className="shelter-main">
+
+                {/* ========================================
+                    TOP BAR
+                ======================================== */}
+
+                <header className="shelter-topbar">
+                    <div className="topbar-left">
+                        <button
+                            className="mobile-menu-button"
+                            onClick={() =>
+                                setSidebarOpen(
+                                    true
+                                )
+                            }
+                        >
+                            <Menu size={22} />
+                        </button>
+
+                        <div>
+                            <h1>
+                                Shelter Dashboard
+                            </h1>
+
+                            <p>
+                                Manage your shelter
+                                and adoption
+                                activities.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="topbar-actions">
+
+                        {/* NOTIFICATIONS */}
+
+                        <div className="notification-wrapper">
+                            <button
+                                className="icon-button"
+                                onClick={() =>
+                                    document
+                                        .getElementById(
+                                            "notifications-section"
+                                        )
+                                        ?.scrollIntoView(
+                                            {
+                                                behavior:
+                                                    "smooth",
+                                            }
+                                        )
+                                }
+                            >
+                                <Bell size={20} />
+
+                                {unreadCount >
+                                    0 && (
+                                    <span className="notification-badge">
+                                        {unreadCount >
+                                        9
+                                            ? "9+"
+                                            : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* DARK MODE */}
+
+                        <button
+                            className="icon-button"
+                            onClick={
+                                toggleDarkMode
+                            }
+                            title={
+                                darkMode
+                                    ? "Light mode"
+                                    : "Dark mode"
+                            }
+                        >
+                            {darkMode ? (
+                                <Sun size={20} />
+                            ) : (
+                                <Moon size={20} />
+                            )}
+                        </button>
+                    </div>
+                </header>
+
+                {/* ========================================
+                    CONTENT
+                ======================================== */}
+
+                <div className="dashboard-content">
+
+                    {/* ERROR */}
+
+                    {error && (
+                        <div className="dashboard-error">
+                            <XCircle size={20} />
+
+                            <span>
+                                {error}
+                            </span>
+
+                            <button
+                                onClick={
+                                    loadDashboard
+                                }
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ====================================
+                        WELCOME
+                    ==================================== */}
+
+                    <section className="welcome-section">
+                        <div>
+                            <h2>
+                                Welcome back!
+                            </h2>
+
+                            <p>
+                                Here's what's
+                                happening at your
+                                shelter today.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ====================================
+                        STAT CARDS
+                    ==================================== */}
+
+                    <section className="stats-grid">
+
+                        {/* TOTAL */}
+
+                        <div className="stat-card">
+                            <div className="stat-icon total-icon">
+                                <PawPrint size={24} />
+                            </div>
+
+                            <div className="stat-info">
+                                <span>
+                                    Total Pets
+                                </span>
+
+                                <strong>
+                                    {
+                                        dashboardData
+                                            .stats
+                                            .total
+                                    }
+                                </strong>
+                            </div>
+                        </div>
+
+                        {/* AVAILABLE */}
+
+                        <div className="stat-card">
+                            <div className="stat-icon available-icon">
+                                <CheckCircle
+                                    size={24}
+                                />
+                            </div>
+
+                            <div className="stat-info">
+                                <span>
+                                    Available
+                                </span>
+
+                                <strong>
+                                    {
+                                        dashboardData
+                                            .stats
+                                            .available
+                                    }
+                                </strong>
+                            </div>
+                        </div>
+
+                        {/* TREATMENT */}
+
+                        <div className="stat-card">
+                            <div className="stat-icon treatment-icon">
+                                <Clock size={24} />
+                            </div>
+
+                            <div className="stat-info">
+                                <span>
+                                    In Treatment
+                                </span>
+
+                                <strong>
+                                    {
+                                        dashboardData
+                                            .stats
+                                            .treatment
+                                    }
+                                </strong>
+                            </div>
+                        </div>
+
+                        {/* ADOPTED */}
+
+                        <div className="stat-card">
+                            <div className="stat-icon adopted-icon">
+                                <Dog size={24} />
+                            </div>
+
+                            <div className="stat-info">
+                                <span>
+                                    Adopted
+                                </span>
+
+                                <strong>
+                                    {
+                                        dashboardData
+                                            .stats
+                                            .adopted
+                                    }
+                                </strong>
+                            </div>
+                        </div>
+
+                        {/* PENDING */}
+
+                        <div className="stat-card">
+                            <div className="stat-icon pending-icon">
+                                <Clock size={24} />
+                            </div>
+
+                            <div className="stat-info">
+                                <span>
+                                    Pending Requests
+                                </span>
+
+                                <strong>
+                                    {
+                                        dashboardData
+                                            .stats
+                                            .pending
+                                    }
+                                </strong>
+                            </div>
+                        </div>
+
+                    </section>
+
+                    {/* ====================================
+                        TWO COLUMN CONTENT
+                    ==================================== */}
+
+                    <div className="dashboard-grid">
+
+                        {/* ==================================
+                            ADOPTION REQUESTS
+                        ================================== */}
+
+                        <section className="dashboard-card requests-card">
+
+                            <div className="card-header">
+                                <div>
+                                    <h3>
+                                        Adoption
+                                        Requests
+                                    </h3>
+
+                                    <p>
+                                        Recent
+                                        applications
+                                        for your
+                                        pets.
+                                    </p>
+                                </div>
+
+                                <span className="card-count">
+                                    {
+                                        dashboardData
+                                            .adoptionRequests
+                                            .length
+                                    }
+                                </span>
+                            </div>
+
+                            <div className="requests-list">
+
+                                {dashboardData
+                                    .adoptionRequests
+                                    .length ===
+                                    0 ? (
+                                    <div className="empty-state">
+                                        <PawPrint
+                                            size={36}
+                                        />
+
+                                        <h4>
+                                            No adoption
+                                            requests
+                                        </h4>
+
+                                        <p>
+                                            There are
+                                            currently
+                                            no adoption
+                                            requests.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    dashboardData.adoptionRequests.map(
+                                        (
+                                            request
+                                        ) => {
+                                            const status =
+                                                String(
+                                                    request.status ||
+                                                        "pending"
+                                                ).toLowerCase();
+
+                                            const isPending =
+                                                status ===
+                                                "pending";
+
+                                            const isProcessing =
+                                                processingId ===
+                                                request.id;
+
+                                            return (
+                                                <div
+                                                    className="request-item"
+                                                    key={
+                                                        request.id
+                                                    }
+                                                >
+                                                    <div className="request-avatar">
+                                                        <User
+                                                            size={
+                                                                20
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div className="request-info">
+                                                        <h4>
+                                                            {
+                                                                request.name
+                                                            }
+                                                        </h4>
+
+                                                        <p>
+                                                            {
+                                                                request.email
+                                                            }
+                                                        </p>
+
+                                                        <div className="request-pet">
+                                                            <PawPrint
+                                                                size={
+                                                                    15
+                                                                }
+                                                            />
+
+                                                            <span>
+                                                                Applied
+                                                                for{" "}
+                                                                <strong>
+                                                                    {
+                                                                        request.pet
+                                                                    }
+                                                                </strong>
+                                                            </span>
+                                                        </div>
+
+                                                        <span className="request-date">
+                                                            {
+                                                                request.date
+                                                            }
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="request-actions">
+
+                                                        <span
+                                                            className={`request-status ${getStatusClass(
+                                                                status
+                                                            )}`}
+                                                        >
+                                                            {formatStatus(
+                                                                status
+                                                            )}
+                                                        </span>
+
+                                                        {isPending && (
+                                                            <div className="approval-buttons">
+
+                                                                <button
+                                                                    className="approve-button"
+                                                                    disabled={
+                                                                        isProcessing
+                                                                    }
+                                                                    onClick={() =>
+                                                                        handleApprove(
+                                                                            request.id
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <CheckCircle
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+
+                                                                    {isProcessing
+                                                                        ? "Processing..."
+                                                                        : "Approve"}
+                                                                </button>
+
+                                                                <button
+                                                                    className="reject-button"
+                                                                    disabled={
+                                                                        isProcessing
+                                                                    }
+                                                                    onClick={() =>
+                                                                        handleReject(
+                                                                            request.id
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <XCircle
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+
+                                                                    Reject
+                                                                </button>
+
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                    )
+                                )}
+
+                            </div>
+
+                        </section>
+
+                        {/* ==================================
+                            RECENT PETS
+                        ================================== */}
+
+                        <section className="dashboard-card pets-card">
+
+                            <div className="card-header">
+                                <div>
+                                    <h3>
+                                        Recent Pets
+                                    </h3>
+
+                                    <p>
+                                        Recently added
+                                        pets.
+                                    </p>
+                                </div>
+
+                                <button
+                                    className="view-all-button"
+                                    onClick={() =>
+                                        goTo(
+                                            "/shelter/pets"
+                                        )
+                                    }
+                                >
+                                    View All
+                                    <ChevronRight
+                                        size={16}
+                                    />
+                                </button>
+                            </div>
+
+                            <div className="pets-list">
+
+                                {dashboardData
+                                    .pets.length ===
+                                0 ? (
+                                    <div className="empty-state">
+                                        <PawPrint
+                                            size={36}
+                                        />
+
+                                        <h4>
+                                            No pets yet
+                                        </h4>
+
+                                        <p>
+                                            Add your
+                                            first pet
+                                            to the
+                                            shelter.
+                                        </p>
+
+                                        <button
+                                            className="add-pet-button"
+                                            onClick={() =>
+                                                goTo(
+                                                    "/shelter/pets/add"
+                                                )
+                                            }
+                                        >
+                                            Add Pet
+                                        </button>
+                                    </div>
+                                ) : (
+                                    dashboardData.pets.map(
+                                        (pet) => (
+                                            <div
+                                                className="pet-item"
+                                                key={
+                                                    pet.id
+                                                }
+                                            >
+                                                <div className="pet-image-wrapper">
+
+                                                    {pet.image ? (
+                                                        <img
+                                                            src={
+                                                                pet.image
+                                                            }
+                                                            alt={
+                                                                pet.name
+                                                            }
+                                                            className="pet-image"
+                                                        />
+                                                    ) : (
+                                                        <div className="pet-image-placeholder">
+                                                            <PawPrint
+                                                                size={
+                                                                    24
+                                                                }
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                </div>
+
+                                                <div className="pet-info">
+                                                    <h4>
+                                                        {
+                                                            pet.name
+                                                        }
+                                                    </h4>
+
+                                                    <p>
+                                                        {pet.type ||
+                                                            "Pet"}
+
+                                                        {pet.breed
+                                                            ? ` • ${pet.breed}`
+                                                            : ""}
+                                                    </p>
+
+                                                    <span
+                                                        className={`pet-status ${getStatusClass(
+                                                            pet.status
+                                                        )}`}
+                                                    >
+                                                        {formatStatus(
+                                                            pet.status
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )
+                                    )
+                                )}
+
+                            </div>
+
+                        </section>
+
+                    </div>
+
+                    {/* ====================================
+                        NOTIFICATIONS
+                    ==================================== */}
+
+                    <section
+                        id="notifications-section"
+                        className="dashboard-card notifications-card"
+                    >
+
+                        <div className="card-header">
+                            <div>
+                                <h3>
+                                    Notifications
+                                </h3>
+
+                                <p>
+                                    Recent updates
+                                    and activities.
+                                </p>
+                            </div>
+
+                            <button
+                                className="refresh-button"
+                                onClick={
+                                    loadNotifications
+                                }
+                                disabled={
+                                    notificationLoading
+                                }
+                            >
+                                {notificationLoading
+                                    ? "Loading..."
+                                    : "Refresh"}
+                            </button>
+                        </div>
+
+                        {notificationError && (
+                            <div className="notification-error">
+                                {notificationError}
+                            </div>
                         )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
 
-              {/* RIGHT COLUMN */}
-              <div>
-                <div className="dashboard-card">
-                  <div className="card-header">
-                    <h2>Recent Adoption Requests</h2>
-                  </div>
+                        <div className="notifications-list">
 
-                  {adoptionRequests && adoptionRequests.length > 0 ? (
-                    adoptionRequests.map((request, index) => (
-                      <div className="request-item" key={index}>
-                        <div className="request-user">
-                          <div className="request-avatar">
-                            <User size={17} />
-                          </div>
-                          <div>
-                            <strong>{request.name}</strong>
-                            <span>Requested {request.pet}</span>
-                          </div>
+                            {notifications.length ===
+                            0 ? (
+                                <div className="empty-state">
+                                    <Bell
+                                        size={36}
+                                    />
+
+                                    <h4>
+                                        No notifications
+                                    </h4>
+
+                                    <p>
+                                        You're all
+                                        caught up.
+                                    </p>
+                                </div>
+                            ) : (
+                                notifications
+                                    .slice(0, 8)
+                                    .map(
+                                        (
+                                            notification
+                                        ) => {
+                                            const unread =
+                                                !notification.is_read &&
+                                                !notification.read_at;
+
+                                            return (
+                                                <div
+                                                    key={
+                                                        notification.id
+                                                    }
+                                                    className={`notification-item ${
+                                                        unread
+                                                            ? "unread"
+                                                            : ""
+                                                    }`}
+                                                    onClick={() => {
+                                                        if (
+                                                            unread
+                                                        ) {
+                                                            markNotificationAsRead(
+                                                                notification.id
+                                                            );
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="notification-icon">
+                                                        <Bell
+                                                            size={
+                                                                18
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div className="notification-content">
+                                                        <h4>
+                                                            {
+                                                                notification.title
+                                                            }
+                                                        </h4>
+
+                                                        <p>
+                                                            {
+                                                                notification.message
+                                                            }
+                                                        </p>
+
+                                                        <span>
+                                                            {notification.created_at
+                                                                ? new Date(
+                                                                      notification.created_at
+                                                                  ).toLocaleString()
+                                                                : ""}
+                                                        </span>
+                                                    </div>
+
+                                                    {unread && (
+                                                        <div className="unread-dot"></div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+                                    )
+                            )}
+
                         </div>
 
-                        <div className="request-right">
-                          <span className={`status ${request.status ? request.status.toLowerCase() : ''}`}>
-                            {request.status}
-                          </span>
-                          <small>{request.date}</small>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p style={{ padding: '15px', textAlign: 'center' }}>
-                      {loading ? "Loading requests..." : "No recent requests."}
-                    </p>
-                  )}
+                    </section>
+
                 </div>
-
-                {/* QUICK ACTIONS */}
-                <div className="dashboard-card">
-                  <div className="card-header">
-                    <h2>Quick Actions</h2>
-                  </div>
-
-                  <div className="quick-actions">
-                    <button className="quick-action" onClick={() => goTo("/dashboard/shelter/add-pet")} type="button">
-                      <Plus size={20} />
-                      <strong>Add Pet</strong>
-                      <span>Register a new shelter pet</span>
-                    </button>
-
-                    <button className="quick-action" onClick={() => goTo("/profile/shelter")} type="button">
-                      <User size={20} />
-                      <strong>My Profile</strong>
-                      <span>View or edit staff profile</span>
-                    </button>
-
-                    <button className="quick-action" onClick={() => goTo("/settings")} type="button">
-                      <SettingsIcon size={20} />
-                      <strong>Settings</strong>
-                      <span>Manage account settings</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </main>
+            </main>
         </div>
-      </div>
-    </>
-  );
+    );
 }

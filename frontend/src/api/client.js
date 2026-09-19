@@ -1,82 +1,93 @@
+
 /*
 |------------------------------------------------------------------------------
-| API CLIENT  -  one place that knows how to talk to Laravel
+| API CLIENT - one place that knows how to talk to Laravel
 |------------------------------------------------------------------------------
-|
-| HTTP is STATELESS: the server forgets you the instant it answers. So every
-| single request has to prove who you are all over again. That proof is the
-| API TOKEN issued by POST /api/auth/login.
-|
-| The full cycle:
-|
-|   1. login   -> Laravel INSERTs a row into `personal_access_tokens`
-|                 and returns the plain token ONCE
-|   2. browser -> saves it in localStorage
-|   3. every later request sends   Authorization: Bearer <token>
-|   4. Laravel -> hashes it, SELECTs the matching token row, loads the user
-|   5. logout  -> DELETEs that row, so the token stops working
-|
-| Step 5 is the part people forget. Clearing localStorage alone would leave a
-| perfectly valid token sitting in the database.
-|
 */
 
-const API = import.meta.env.VITE_API_URL;
+const API = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api").replace(
+  /\/$/,
+  ""
+);
 
-// The localStorage key. Named once here so a typo cannot make the app "forget"
-// a token it actually saved.
-const TOKEN_KEY = 'petconnect_token';
-const USER_KEY = 'petconnect_user';
+const TOKEN_KEY = "petconnect_token";
+const USER_KEY = "petconnect_user";
+
+/*
+|--------------------------------------------------------------------------
+| TOKEN / SESSION
+|--------------------------------------------------------------------------
+*/
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setSession(token, user) {
+export function setSession(token, user = null) {
+  if (!token) {
+    console.error("No token received from login.");
+    return;
+  }
+
   localStorage.setItem(TOKEN_KEY, token);
-  // localStorage only stores STRINGS, so objects must be JSON-encoded.
-  // This cached copy just avoids a flash of empty UI on page load - the real
-  // source of truth is always the users table, re-read via GET /auth/me.
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
 }
 
 export function getCachedUser() {
   const raw = localStorage.getItem(USER_KEY);
-  if (!raw) return null;
+
+  if (!raw) {
+    return null;
+  }
 
   try {
     return JSON.parse(raw);
   } catch {
-    return null;   // corrupted value - treat it as "not logged in"
+    localStorage.removeItem(USER_KEY);
+    return null;
   }
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+
+  /*
+  | Optional cleanup for older versions of the app.
+  | This prevents an old token from being accidentally reused.
+  */
+  localStorage.removeItem("token");
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("access_token");
 }
 
-/**
- * The single function every other API file goes through.
- *
- * It attaches the token, decodes the JSON, and turns any non-2xx response into
- * a thrown Error carrying the status code - so callers can simply use
- * try/catch instead of checking response.ok everywhere.
- */
+/*
+|--------------------------------------------------------------------------
+| API FETCH
+|--------------------------------------------------------------------------
+*/
+
 export async function apiFetch(path, options = {}) {
   const token = getToken();
 
   const headers = {
-    Accept: 'application/json',
+    Accept: "application/json",
     ...options.headers,
   };
 
-  // Only set Content-Type when there is actually a body to describe.
+  /*
+  | Only send JSON Content-Type when there is a request body.
+  */
   if (options.body) {
-    headers['Content-Type'] = 'application/json';
+    headers["Content-Type"] = "application/json";
   }
 
-  // This header is what the auth:sanctum middleware reads.
+  /*
+  | Laravel Sanctum authentication.
+  */
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -84,14 +95,18 @@ export async function apiFetch(path, options = {}) {
   let response;
 
   try {
-    response = await fetch(`${API}${path}`, { ...options, headers });
-  } catch {
-    // fetch() only rejects on NETWORK failure (server down, DNS, CORS).
-    // A 404 or 500 is a successful round trip, so it does NOT land here.
+    response = await fetch(`${API}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkError) {
     const error = new Error(
-      `Cannot reach the server at ${API}. Is "php artisan serve" running?`
+      `Cannot reach the server at ${API}. Make sure Laravel is running with "php artisan serve".`
     );
+
     error.status = 0;
+    error.originalError = networkError;
+
     throw error;
   }
 
@@ -100,29 +115,167 @@ export async function apiFetch(path, options = {}) {
   try {
     data = await response.json();
   } catch {
-    data = { message: 'The server sent a response that was not JSON.' };
+    data = {
+      message: "The server returned an invalid JSON response.",
+    };
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | ERROR HANDLING
+  |--------------------------------------------------------------------------
+  */
+
   if (!response.ok) {
-    // 401 = the token is missing, expired, or was deleted by logout.
-    // Wipe the dead session so the UI can send the user back to login.
+    /*
+    | 401 = no valid authentication token.
+    */
     if (response.status === 401) {
       clearSession();
     }
 
-    // Laravel's 422 body looks like:
-    //   { message, errors: { email: ["..."], name: ["..."] } }
-    // Flatten it into one readable string for simple alerts, while still
-    // exposing the per-field object for forms that show inline messages.
-    const flattened = data.errors
-      ? Object.values(data.errors).flat().join('\n')
+    /*
+    | Laravel validation errors:
+    |
+    | {
+    |   "message": "The given data was invalid.",
+    |   "errors": {
+    |      "email": ["The email field is required."]
+    |   }
+    | }
+    */
+    const flattenedErrors = data.errors
+      ? Object.values(data.errors)
+          .flat()
+          .join("\n")
       : null;
 
-    const error = new Error(flattened || data.message || 'Request failed.');
+    const error = new Error(
+      flattenedErrors ||
+        data.message ||
+        `Request failed with status ${response.status}.`
+    );
+
     error.status = response.status;
-    error.errors = data.errors ?? null;
+    error.errors = data.errors || null;
+    error.data = data;
+
     throw error;
   }
 
   return data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| LOGIN
+|--------------------------------------------------------------------------
+|
+| Use this function from the login page instead of manually using fetch().
+*/
+
+export async function login(email, password) {
+  /*
+  | Remove old/broken sessions before creating a new one.
+  */
+  clearSession();
+
+  try {
+    const data = await apiFetch("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    /*
+    | Laravel should return something similar to:
+    |
+    | {
+    |   token: "...",
+    |   user: {...}
+    | }
+    |
+    | Some versions may use access_token instead of token.
+    */
+    const token =
+      data.token ||
+      data.access_token ||
+      data.accessToken;
+
+    const user =
+      data.user ||
+      data.data ||
+      null;
+
+    if (!token) {
+      const error = new Error(
+        "Login succeeded, but Laravel did not return an authentication token."
+      );
+
+      error.status = 500;
+      error.data = data;
+
+      throw error;
+    }
+
+    setSession(token, user);
+
+    return data;
+  } catch (error) {
+    /*
+    | Do not silently hide Laravel's 422 validation message.
+    */
+    console.error("Login error:", error);
+    throw error;
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| LOGOUT
+|--------------------------------------------------------------------------
+*/
+
+export async function logout() {
+  const token = getToken();
+
+  try {
+    /*
+    | Only call Laravel logout if a token exists.
+    */
+    if (token) {
+      await apiFetch("/auth/logout", {
+        method: "POST",
+      });
+    }
+  } catch (error) {
+    /*
+    | Even if Laravel logout fails, remove the local session.
+    */
+    console.warn("Logout request failed:", error);
+  } finally {
+    clearSession();
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| CURRENT USER
+|--------------------------------------------------------------------------
+*/
+
+export async function getCurrentUser() {
+  return apiFetch("/auth/me");
+}
+
+/*
+|--------------------------------------------------------------------------
+| API URL
+|--------------------------------------------------------------------------
+*/
+
+export function getApiUrl() {
+  return API;
 }

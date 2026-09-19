@@ -34,366 +34,291 @@ use App\Http\Controllers\Api\PetController;
 use App\Http\Controllers\Api\ShelterController as ApiShelterController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ShelterApplicationController;
 
-
-/*
-|--------------------------------------------------------------------------
-| PUBLIC ROUTES
-|--------------------------------------------------------------------------
-*/
 
 // ========================================
-// AUTHENTICATION
+// PUBLIC ROUTES
 // ========================================
 
-Route::post('/auth/login', [
-    AuthController::class,
-    'login'
-]);
+Route::post('/auth/login', [AuthController::class, 'login']);
 
-Route::post('/auth/register', [
-    RegisterController::class,
-    'register'
-]);
+Route::post('/auth/register', [RegisterController::class, 'register']);
 
-Route::post('/auth/admin/register', [
-    AdminRegisterController::class,
-    'register'
-]);
+Route::post('/auth/admin/register', [AdminRegisterController::class, 'register']);
 
-Route::post('/auth/shelter/register', [
-    ShelterRegisterController::class,
-    'register'
-]);
+Route::post('/auth/shelter/register', [ShelterRegisterController::class, 'register']);
 
-Route::post('/auth/staff/register', [
-    ShelterRegisterController::class,
-    'register'
-]);
+Route::post('/auth/staff/register', [ShelterRegisterController::class, 'register']);
+
+Route::get('/pets', [PetController::class, 'index']);
+
+Route::get('/shelters', [ApiShelterController::class, 'index']);
 
 
-/*
-|--------------------------------------------------------------------------
-| PUBLIC PET & SHELTER ROUTES
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/pets', [
-    PetController::class,
-    'index'
-]);
-
-Route::get('/shelters', [
-    ApiShelterController::class,
-    'index'
-]);
-
-
-/*
-|--------------------------------------------------------------------------
-| AUTHENTICATED ROUTES
-|--------------------------------------------------------------------------
-|
-| All routes inside this group require a valid Sanctum token.
-|
-*/
+// ========================================
+// AUTHENTICATED ROUTES
+// ========================================
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | AUTH
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // AUTH
+    // ========================================
 
-    Route::get('/auth/me', [
-        AuthController::class,
-        'me'
-    ]);
+    Route::get('/auth/me', [AuthController::class, 'me']);
 
-    Route::put('/auth/profile', [
-        AuthController::class,
-        'updateProfile'
-    ]);
+    Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
 
-    Route::put('/auth/password', [
-        AuthController::class,
-        'updatePassword'
-    ]);
+    Route::put('/auth/password', [AuthController::class, 'updatePassword']);
 
-    Route::post('/auth/logout', [
-        AuthController::class,
-        'logout'
-    ]);
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | CURRENT USER
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // USER
+    // ========================================
 
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
 
+    Route::get('/user/profile', [ProfileController::class, 'show']);
 
-    /*
-    |--------------------------------------------------------------------------
-    | USER PROFILE
-    |--------------------------------------------------------------------------
-    */
-
-    Route::get('/user/profile', [
-        ProfileController::class,
-        'show'
-    ]);
-
-    Route::put('/user/profile', [
-        ProfileController::class,
-        'update'
-    ]);
+    Route::put('/user/profile', [ProfileController::class, 'update']);
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADOPTER DASHBOARD
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // ADOPTER DASHBOARD
+    // ========================================
 
-    Route::get('/adopter/dashboard', [
-        AdopterDashboardController::class,
-        'index'
-    ]);
+    Route::get(
+        '/adopter/dashboard',
+        [AdopterDashboardController::class, 'index']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADOPTION APPLICATIONS
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // ADOPTER APPLICATIONS
+    // ========================================
 
-    Route::get('/adopter/applications', [
-        AdoptionApplicationController::class,
-        'index'
-    ]);
+    Route::get(
+        '/adopter/applications',
+        [AdoptionApplicationController::class, 'index']
+    );
 
-    Route::post('/adopter/applications', [
-        AdoptionApplicationController::class,
-        'store'
-    ]);
+    Route::post(
+        '/adopter/applications',
+        [AdoptionApplicationController::class, 'store']
+    );
+
+    // Must be before /adopter/applications/{id}
+    Route::get(
+        '/adopter/applications/process',
+        [AdoptionApplicationController::class, 'processRequests']
+    );
+
+    Route::get(
+        '/adopter/applications/{id}',
+        [AdoptionApplicationController::class, 'show']
+    );
+
+
+    // ========================================
+    // NOTIFICATIONS
+    // ========================================
+
+    Route::get(
+        '/notifications',
+        [NotificationController::class, 'index']
+    );
+
+    Route::put(
+        '/notifications/{id}/read',
+        [NotificationController::class, 'markAsRead']
+    );
+
+
+    // ========================================
+    // USER COMPLAINTS
+    // ========================================
+
+    Route::get(
+        '/complaints',
+        [ComplaintController::class, 'index']
+    );
+
+    Route::post(
+        '/complaints',
+        [ComplaintController::class, 'store']
+    );
+
+    Route::get(
+        '/complaints/{complaint}',
+        [ComplaintController::class, 'show']
+    );
+
+
+    // ========================================
+    // SHELTER DASHBOARD
+    // ========================================
 
     // IMPORTANT:
-    // This route MUST come before /adopter/applications/{id}
-    Route::get('/adopter/applications/process', [
-        AdoptionApplicationController::class,
-        'processRequests'
-    ]);
+    // Shelter dashboard now uses ShelterController
+    // This ensures dashboard data is filtered by
+    // the logged-in shelter staff's shelter_id.
 
-    Route::get('/adopter/applications/{id}', [
-        AdoptionApplicationController::class,
-        'show'
-    ]);
+    Route::get(
+        '/shelter/dashboard',
+        [ApiShelterController::class, 'dashboardStats']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | NOTIFICATIONS
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // SHELTER PETS
+    // ========================================
 
-    Route::get('/notifications', [
-        NotificationController::class,
-        'index'
-    ]);
+    Route::get(
+        '/shelter/pets/summary',
+        [PetController::class, 'getShelterPetSummary']
+    );
 
-    Route::put('/notifications/{id}/read', [
-        NotificationController::class,
-        'markAsRead'
-    ]);
+    Route::get(
+        '/shelter/pets',
+        [PetController::class, 'index']
+    );
 
+    Route::post(
+        '/shelter/pets',
+        [PetController::class, 'store']
+    );
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADOPTER COMPLAINTS
-    |--------------------------------------------------------------------------
-    */
+    Route::put(
+        '/shelter/pets/{id}',
+        [PetController::class, 'update']
+    );
 
-    Route::get('/complaints', [
-        ComplaintController::class,
-        'index'
-    ]);
-
-    Route::post('/complaints', [
-        ComplaintController::class,
-        'store'
-    ]);
-
-    Route::get('/complaints/{complaint}', [
-        ComplaintController::class,
-        'show'
-    ]);
+    Route::delete(
+        '/shelter/pets/{id}',
+        [PetController::class, 'destroy']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | SHELTER DASHBOARD
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // SHELTER ADOPTION APPLICATIONS
+    // ========================================
 
-    Route::get('/shelter/dashboard', [
-        PetController::class,
-        'dashboard'
-    ]);
+    // Get applications belonging to this shelter
+    Route::get(
+        '/shelter/applications',
+        [ShelterApplicationController::class, 'index']
+    );
 
+    // Get one application
+    Route::get(
+        '/shelter/applications/{id}',
+        [ShelterApplicationController::class, 'show']
+    );
 
-    /*
-    |--------------------------------------------------------------------------
-    | SHELTER PET MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
+    // Approve application
+    Route::put(
+        '/shelter/applications/{id}/approve',
+        [ShelterApplicationController::class, 'approve']
+    );
 
-    Route::get('/shelter/pets/summary', [
-        PetController::class,
-        'getShelterPetSummary'
-    ]);
-
-    Route::get('/shelter/pets', [
-        PetController::class,
-        'index'
-    ]);
-
-    Route::post('/shelter/pets', [
-        PetController::class,
-        'store'
-    ]);
-
-    Route::put('/shelter/pets/{id}', [
-        PetController::class,
-        'update'
-    ]);
-
-    Route::delete('/shelter/pets/{id}', [
-        PetController::class,
-        'destroy'
-    ]);
-
+    // Reject application
+    Route::put(
+        '/shelter/applications/{id}/reject',
+        [ShelterApplicationController::class, 'reject']
+    );
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN ROUTES
-|--------------------------------------------------------------------------
-|
-| Every route inside this group requires:
-|
-| 1. auth:sanctum
-| 2. admin middleware
-|
-| All routes automatically receive the /admin prefix.
-|
-*/
+// ========================================
+// ADMIN ROUTES
+// ========================================
 
 Route::middleware([
     'auth:sanctum',
     'admin'
 ])->prefix('admin')->group(function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN DASHBOARD
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // ADMIN DASHBOARD
+    // ========================================
 
-    Route::get('/stats', [
-        StatsController::class,
-        'index'
-    ]);
+    Route::get(
+        '/stats',
+        [StatsController::class, 'index']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN SHELTER MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // SHELTER MANAGEMENT
+    // ========================================
 
     Route::apiResource(
         'shelters',
         AdminShelterController::class
     );
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN LIST
-    |--------------------------------------------------------------------------
-    */
-
-    Route::get('/admins', [
-        AdminShelterController::class,
-        'admins'
-    ]);
+    Route::get(
+        '/admins',
+        [AdminShelterController::class, 'admins']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | SHELTER PET MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // ADMIN PET MANAGEMENT
+    // ========================================
 
-    Route::get('/shelters/{shelter}/pets', [
-        ShelterPetController::class,
-        'index'
-    ]);
+    Route::get(
+        '/shelters/{shelter}/pets',
+        [ShelterPetController::class, 'index']
+    );
 
-    Route::post('/shelters/{shelter}/pets', [
-        ShelterPetController::class,
-        'store'
-    ]);
+    Route::post(
+        '/shelters/{shelter}/pets',
+        [ShelterPetController::class, 'store']
+    );
 
-    Route::put('/shelters/{shelter}/pets/{pet}', [
-        ShelterPetController::class,
-        'update'
-    ]);
+    Route::put(
+        '/shelters/{shelter}/pets/{pet}',
+        [ShelterPetController::class, 'update']
+    );
 
-    Route::delete('/shelters/{shelter}/pets/{pet}', [
-        ShelterPetController::class,
-        'destroy'
-    ]);
+    Route::delete(
+        '/shelters/{shelter}/pets/{pet}',
+        [ShelterPetController::class, 'destroy']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN REPORTS
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // REPORTS
+    // ========================================
 
-    Route::get('/reports', [
-        ReportController::class,
-        'index'
-    ]);
+    Route::get(
+        '/reports',
+        [ReportController::class, 'index']
+    );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN COMPLAINT MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
+    // ========================================
+    // ADMIN COMPLAINTS
+    // ========================================
 
-    Route::get('/complaints', [
-        AdminComplaintController::class,
-        'index'
-    ]);
+    Route::get(
+        '/complaints',
+        [AdminComplaintController::class, 'index']
+    );
 
-    Route::get('/complaints/{id}', [
-        AdminComplaintController::class,
-        'show'
-    ]);
+    Route::get(
+        '/complaints/{id}',
+        [AdminComplaintController::class, 'show']
+    );
 
-    Route::put('/complaints/{id}', [
-        AdminComplaintController::class,
-        'update'
-    ]);
-
+    Route::put(
+        '/complaints/{id}',
+        [AdminComplaintController::class, 'update']
+    );
 });

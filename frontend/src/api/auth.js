@@ -1,94 +1,118 @@
-/*
-|------------------------------------------------------------------------------
-| AUTH API  -  login, who-am-I, edit my own row, logout
-|------------------------------------------------------------------------------
-*/
+import {
+  apiFetch,
+  setSession,
+  clearSession,
+  getToken,
+  getCachedUser,
+} from "./client";
 
-import { apiFetch, setSession, clearSession } from './client';
-
-/**
- * LOGIN  ->  POST /api/auth/login
- *
- * On the server this is:
- *   1. SELECT * FROM users WHERE email = ? LIMIT 1
- *   2. bcrypt-compare the submitted password against the stored hash
- *   3. INSERT INTO personal_access_tokens ...  and return the plain token
- */
+// ========================================
+// LOGIN
+// ========================================
 export async function login(email, password) {
-  const data = await apiFetch('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
+  const data = await apiFetch("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+    }),
   });
 
-  // Save the token immediately - every later request depends on it.
+  if (!data.token) {
+    throw new Error("Login succeeded but no authentication token was returned.");
+  }
+
+  if (!data.user) {
+    throw new Error("Login succeeded but no user information was returned.");
+  }
+
   setSession(data.token, data.user);
 
   return data.user;
 }
 
-/**
- * WHO AM I  ->  GET /api/auth/me
- *
- * Always prefer this over the cached copy in localStorage when the page loads.
- * The cache can be stale; the users table cannot.
- */
+
+// ========================================
+// FETCH CURRENT USER
+// ========================================
 export async function fetchMe() {
-  const data = await apiFetch('/auth/me');
-  return data.user;
+  const data = await apiFetch("/auth/me");
+
+  const user = data.user || data;
+
+  if (user) {
+    localStorage.setItem("petconnect_user", JSON.stringify(user));
+  }
+
+  return user;
 }
 
-/**
- * UPDATE MY PROFILE  ->  PUT /api/auth/profile
- * Runs: UPDATE users SET ... WHERE id = <the token's owner>;
- *
- * Note the id is NOT sent from the browser. The server takes it from the
- * token, so nobody can edit somebody else's row by changing a number in the
- * request body.
- */
-export async function updateProfile(profile) {
-  const data = await apiFetch('/auth/profile', {
-    method: 'PUT',
-    body: JSON.stringify(profile),
+// Compatibility with components using getCurrentUser
+export const getCurrentUser = fetchMe;
+
+
+// ========================================
+// UPDATE PROFILE
+// ========================================
+export async function updateProfile(profileData) {
+  const data = await apiFetch("/auth/profile", {
+    method: "PUT",
+    body: JSON.stringify(profileData),
   });
 
-  return data.user;
+  // Update cached user if backend returns the updated user
+  const user = data.user || data.data || null;
+
+  if (user) {
+    localStorage.setItem("petconnect_user", JSON.stringify(user));
+  }
+
+  return data;
 }
 
-/**
- * CHANGE PASSWORD  ->  PUT /api/auth/password
- *
- * On the server:
- *   1. bcrypt-compare `current_password` against the stored hash
- *   2. reject it if the new password equals the old one
- *   3. UPDATE users SET password = <new hash>, password_changed_at = NOW()
- *   4. DELETE every OTHER token row for this user, so any other device
- *      that was signed in is kicked out
- *
- * Our own token survives step 4, so the user stays logged in here.
- */
-export async function changePassword({ currentPassword, newPassword, confirmPassword }) {
-  return apiFetch('/auth/password', {
-    method: 'PUT',
+
+// ========================================
+// CHANGE PASSWORD
+// ========================================
+export async function changePassword(currentPassword, newPassword) {
+  const data = await apiFetch("/auth/password", {
+    method: "PUT",
     body: JSON.stringify({
       current_password: currentPassword,
       password: newPassword,
-      // Laravel's `confirmed` rule looks for this exact field name.
-      password_confirmation: confirmPassword,
+      password_confirmation: newPassword,
     }),
   });
+
+  return data;
 }
 
-/**
- * LOGOUT  ->  POST /api/auth/logout
- * Deletes the token row server-side, then clears the browser copy.
- */
+
+// ========================================
+// LOGOUT
+// ========================================
 export async function logout() {
+  const token = getToken();
+
   try {
-    await apiFetch('/auth/logout', { method: 'POST' });
-  } catch {
-    // Even if the server call fails (offline, token already gone), we still
-    // clear the local session - the user asked to be logged out.
+    if (token) {
+      await apiFetch("/auth/logout", {
+        method: "POST",
+      });
+    }
+  } catch (error) {
+    console.warn("Logout request failed:", error);
   } finally {
     clearSession();
   }
 }
+
+
+// ========================================
+// HELPER EXPORTS
+// ========================================
+export {
+  getToken,
+  clearSession,
+  getCachedUser,
+};
