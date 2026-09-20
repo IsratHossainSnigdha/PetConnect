@@ -1,0 +1,240 @@
+.medical-records-container {
+  padding: 24px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.medical-records-container.dark {
+  background-color: #0b131e;
+  color: #fff;
+}
+
+.medical-records-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.medical-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.medical-records-container.dark .medical-back-btn {
+  background: #1e293b;
+  color: #fff;
+}
+
+.medical-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.medical-add-btn:hover {
+  background: #0369a1;
+}
+
+.pet-medical-info-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.medical-records-container.dark .pet-medical-info-card {
+  background: #101f2b;
+}
+
+.pet-medical-info-card h2 {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+}
+
+.pet-medical-info-card p {
+  color: #64748b;
+  margin: 0;
+  font-size: 14px;
+}
+
+.medical-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.medical-record-card {
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #0284c7;
+}
+
+.medical-records-container.dark .medical-record-card {
+  background: #101f2b;
+}
+
+.record-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.record-card-top strong {
+  font-size: 16px;
+}
+
+.record-date {
+  font-size: 13px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.record-text, .record-notes {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.record-notes {
+  color: #64748b;
+}
+
+.loading-text, .no-records-text {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+}
+
+/* Modal Styling */
+.medical-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.medical-modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  width: 400px;
+  maxWidth: 100%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
+}
+
+.medical-records-container.dark .medical-modal-content {
+  background: #101f2b;
+  color: #fff;
+}
+
+.medical-modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.medical-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.form-group input, 
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.medical-records-container.dark .form-group input, 
+.medical-records-container.dark .form-group textarea {
+  background: #1e293b;
+  border-color: #334155;
+  color: #fff;
+}
+
+.form-group textarea {
+  height: 80px;
+  resize: vertical;
+}
+
+.medical-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  background: #cbd5e1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.medical-records-container.dark .cancel-btn {
+  background: #334155;
+  color: #fff;
+}
+
+.save-btn {
+  padding: 8px 16px;
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.save-btn:hover {
+  background: #0369a1;
+}

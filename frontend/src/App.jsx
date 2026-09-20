@@ -32,6 +32,7 @@ import ShelterDashboard from "./pages/DashboardPages/shelterDashboard";
 import AdminDashboard from "./pages/DashboardPages/adminDashboard";
 import AddPet from "./pages/DashboardPages/AddPet";
 import ManagePets from "./pages/DashboardPages/ManagePets";
+import PetMedicalRecords from "./pages/DashboardPages/PetMedicalRecords";
 
 // ========================================
 // PROFILE PAGES
@@ -335,6 +336,20 @@ export default function App() {
                 }
             />
 
+            {/* PET MEDICAL RECORDS */}
+
+            <Route
+                path="/shelter/pets/:id/medical-records"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <PetMedicalRecords
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
             {/* OLD MANAGE PETS ROUTE
                 Kept for compatibility
             */}
@@ -523,16 +538,6 @@ export default function App() {
     );
 }
 
-/*
-|--------------------------------------------------------------------------
-| SHELTER APPLICATIONS PAGE
-|--------------------------------------------------------------------------
-|
-| This is temporary until the actual ShelterApplications
-| component is connected.
-|
-*/
-
 function ShelterApplicationsPage() {
     return (
         <div
@@ -543,7 +548,6 @@ function ShelterApplicationsPage() {
             }}
         >
             <h1>Adoption Requests</h1>
-
             <p>
                 Shelter adoption requests are available
                 through the shelter dashboard.

@@ -19,7 +19,7 @@ export default function ManagePets({ darkMode }) {
   const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
- 
+  
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentPet, setCurrentPet] = useState(null);
 
@@ -104,7 +104,7 @@ export default function ManagePets({ darkMode }) {
     setIsEditModalOpen(true);
   };
 
-  
+ 
   const handleUpdatePet = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("petconnect_token");
@@ -154,7 +154,7 @@ export default function ManagePets({ darkMode }) {
     }
   };
 
-  
+ 
   const filteredPets = pets.filter((pet) => {
     const matchesSearch = pet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           pet.breed.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,7 +165,7 @@ export default function ManagePets({ darkMode }) {
 
   return (
     <div className={`manage-pets-container ${darkMode ? "dark" : ""}`}>
-       
+        
       {/* Top Header & Back Button */}
       <div className="manage-pets-header">
         <button 
@@ -253,7 +253,15 @@ export default function ManagePets({ darkMode }) {
                             <PawPrint size={18} />
                           )}
                         </div>
-                        <span className="pet-name-text">{pet.name}</span>
+                        {/* Pet Name er upor click korle medical record page-e navigate korbe */}
+                        <span 
+                          className="pet-name-text" 
+                          style={{ cursor: "pointer", textDecoration: "underline", color: "inherit" }}
+                          onClick={() => navigate(`/shelter/pets/${pet.id}/medical-records`)}
+                          title="Click to view medical records"
+                        >
+                          {pet.name}
+                        </span>
                       </div>
                     </td>
                     <td>{pet.type}</td>

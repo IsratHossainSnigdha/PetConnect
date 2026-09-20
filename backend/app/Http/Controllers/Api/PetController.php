@@ -305,4 +305,54 @@ class PetController extends Controller
             'message' => 'Pet deleted successfully!'
         ], 200);
     }
+
+    // নির্দিষ্ট পেটের মেডিকেল রেকর্ডগুলো দেখার জন্য (Get Method)
+    public function getMedicalRecords($id)
+    {
+        $pet = Pet::find($id);
+        
+        if (!$pet) {
+            return response()->json(['message' => 'Pet not found'], 404);
+        }
+
+        $records = DB::table('medical_records')->where('pet_id', $id)->get();
+
+        return response()->json([
+            'pet' => $pet,
+            'records' => $records
+        ], 200);
+    }
+
+    // নির্দিষ্ট পেটের জন্য নতুন মেডিকেল রেকর্ড যোগ করার জন্য
+    public function storeMedicalRecord(Request $request, $id)
+    {
+        $request->validate([
+            'date' => 'required|date',
+            'diagnosis' => 'required|string|max:255',
+            'treatment' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $pet = Pet::find($id);
+        if (!$pet) {
+            return response()->json(['message' => 'Pet not found'], 404);
+        }
+
+        $recordId = DB::table('medical_records')->insertGetId([
+            'pet_id' => $id,
+            'date' => $request->date,
+            'diagnosis' => $request->diagnosis,
+            'treatment' => $request->treatment,
+            'notes' => $request->notes,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $createdRecord = DB::table('medical_records')->where('id', $recordId)->first();
+
+        return response()->json([
+            'message' => 'Medical record added successfully!',
+            'record' => $createdRecord
+        ], 201);
+    }
 }

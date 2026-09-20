@@ -203,6 +203,12 @@ Route::middleware('auth:sanctum')->group(function () {
         [PetController::class, 'destroy']
     );
 
+    // নির্দিষ্ট পেটের মেডিকেল রেকর্ড দেখার জন্য (GET)
+    Route::get('/shelter/pets/{id}/medical-records', [PetController::class, 'getMedicalRecords']);
+
+    // নির্দিষ্ট পেটে নতুন মেডিকেল রেকর্ড যোগ করার জন্য (POST)
+    Route::post('/shelter/pets/{id}/medical-records', [PetController::class, 'storeMedicalRecord']);
+
 
     // ========================================
     // SHELTER ADOPTION APPLICATIONS
