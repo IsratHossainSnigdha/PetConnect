@@ -88,11 +88,16 @@ export default function App() {
                 // Backward compatibility
                 localStorage.getItem("user");
 
-            return savedUser ? JSON.parse(savedUser) : null;
+            return savedUser
+                ? JSON.parse(savedUser)
+                : null;
 
         } catch (error) {
 
-            console.error("Error loading user:", error);
+            console.error(
+                "Error loading user:",
+                error
+            );
 
             return null;
         }
@@ -113,7 +118,11 @@ export default function App() {
     // ========================================
 
     const toggleDarkMode = () => {
-        setDarkMode((previous) => !previous);
+
+        setDarkMode(
+            (previous) => !previous
+        );
+
     };
 
 
@@ -145,7 +154,7 @@ export default function App() {
                 JSON.stringify(user)
             );
 
-            // Backward compatibility with older pages
+            // Backward compatibility
             localStorage.setItem(
                 "user",
                 JSON.stringify(user)
@@ -156,11 +165,12 @@ export default function App() {
 
 
     // ========================================
-    // APP
+    // APP ROUTES
     // ========================================
 
     return (
         <>
+
             <Routes>
 
                 {/* ========================================
@@ -169,7 +179,9 @@ export default function App() {
 
                 <Route
                     path="/"
-                    element={<LandingPage />}
+                    element={
+                        <LandingPage />
+                    }
                 />
 
 
@@ -180,7 +192,9 @@ export default function App() {
                 <Route
                     path="/login"
                     element={
-                        <LoginPage setUser={setUser} />
+                        <LoginPage
+                            setUser={setUser}
+                        />
                     }
                 />
 
@@ -192,7 +206,9 @@ export default function App() {
                 <Route
                     path="/auth/login"
                     element={
-                        <LoginPage setUser={setUser} />
+                        <LoginPage
+                            setUser={setUser}
+                        />
                     }
                 />
 
@@ -203,27 +219,37 @@ export default function App() {
 
                 <Route
                     path="/signup"
-                    element={<GlobalSignup />}
+                    element={
+                        <GlobalSignup />
+                    }
                 />
 
                 <Route
                     path="/signup/adopter"
-                    element={<AdopterSignup />}
+                    element={
+                        <AdopterSignup />
+                    }
                 />
 
                 <Route
                     path="/signup/shelter"
-                    element={<ShelterSignup />}
+                    element={
+                        <ShelterSignup />
+                    }
                 />
 
                 <Route
                     path="/signup/staff"
-                    element={<ShelterSignup />}
+                    element={
+                        <ShelterSignup />
+                    }
                 />
 
                 <Route
                     path="/signup/admin"
-                    element={<AdminSignup />}
+                    element={
+                        <AdminSignup />
+                    }
                 />
 
 
@@ -237,10 +263,14 @@ export default function App() {
                     path="/dashboard/adopter"
                     element={
                         <RequireAuth>
+
                             <AdopterDashboard
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -252,10 +282,14 @@ export default function App() {
                     path="/applications/adopter"
                     element={
                         <RequireAuth>
+
                             <AdopterApplications
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -267,10 +301,14 @@ export default function App() {
                     path="/complaints/adopter"
                     element={
                         <RequireAuth>
+
                             <AdopterComplaints
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -282,10 +320,14 @@ export default function App() {
                     path="/profile/adopter"
                     element={
                         <RequireAuth>
+
                             <AdopterProfile
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -300,11 +342,17 @@ export default function App() {
                 <Route
                     path="/shelter/dashboard"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <ShelterDashboard
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -315,11 +363,17 @@ export default function App() {
                 <Route
                     path="/dashboard/shelter"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <ShelterDashboard
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -330,11 +384,17 @@ export default function App() {
                 <Route
                     path="/shelter/pets/add"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <AddPet
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -345,11 +405,17 @@ export default function App() {
                 <Route
                     path="/dashboard/shelter/add-pet"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <AddPet
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -360,11 +426,17 @@ export default function App() {
                 <Route
                     path="/shelter/pets"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <ManagePets
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -375,11 +447,17 @@ export default function App() {
                 <Route
                     path="/shelter/pets/:id/medical-records"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <PetMedicalRecords
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -390,11 +468,17 @@ export default function App() {
                 <Route
                     path="/dashboard/shelter/manage-pets"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <ManagePets
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -405,8 +489,12 @@ export default function App() {
                 <Route
                     path="/shelter/applications"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <ShelterApplicationsPage />
+
                         </RequireAuth>
                     }
                 />
@@ -417,11 +505,17 @@ export default function App() {
                 <Route
                     path="/profile/shelter"
                     element={
-                        <RequireAuth role="shelter_staff">
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
                             <MyProfile
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -433,10 +527,14 @@ export default function App() {
                     path="/profile"
                     element={
                         <RequireAuth>
+
                             <MyProfile
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -450,10 +548,14 @@ export default function App() {
                     path="/settings"
                     element={
                         <RequireAuth>
+
                             <Settings
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -468,11 +570,17 @@ export default function App() {
                 <Route
                     path="/dashboard/admin"
                     element={
-                        <RequireAuth role="platform_admin">
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
                             <AdminDashboard
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -483,11 +591,17 @@ export default function App() {
                 <Route
                     path="/profile/admin"
                     element={
-                        <RequireAuth role="platform_admin">
-                            <MyProfile
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <AdminProfile
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -498,11 +612,17 @@ export default function App() {
                 <Route
                     path="/shelters/admin"
                     element={
-                        <RequireAuth role="platform_admin">
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
                             <AdminShelters
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -513,11 +633,17 @@ export default function App() {
                 <Route
                     path="/shelters/admin/:id"
                     element={
-                        <RequireAuth role="platform_admin">
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
                             <ShelterDetail
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -528,11 +654,17 @@ export default function App() {
                 <Route
                     path="/complaints/admin"
                     element={
-                        <RequireAuth role="platform_admin">
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
                             <AdminComplaints
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -543,11 +675,17 @@ export default function App() {
                 <Route
                     path="/reports/admin"
                     element={
-                        <RequireAuth role="platform_admin">
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
                             <AdminReports
                                 darkMode={darkMode}
-                                toggleDarkMode={toggleDarkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
                             />
+
                         </RequireAuth>
                     }
                 />
@@ -560,6 +698,7 @@ export default function App() {
                 <Route
                     path="*"
                     element={
+
                         <div
                             style={{
                                 minHeight: "100vh",
@@ -567,11 +706,17 @@ export default function App() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 flexDirection: "column",
-                                fontFamily: "Arial, sans-serif",
+                                fontFamily:
+                                    "Arial, sans-serif",
                             }}
                         >
+
                             <h1>404</h1>
-                            <p>Page Not Found</p>
+
+                            <p>
+                                Page Not Found
+                            </p>
+
                         </div>
                     }
                 />
@@ -597,6 +742,7 @@ export default function App() {
 function ShelterApplicationsPage() {
 
     return (
+
         <div
             style={{
                 minHeight: "100vh",
@@ -605,11 +751,13 @@ function ShelterApplicationsPage() {
             }}
         >
 
-            <h1>Adoption Requests</h1>
+            <h1>
+                Adoption Requests
+            </h1>
 
             <p>
-                Shelter adoption requests are available
-                through the shelter dashboard.
+                Shelter adoption requests are
+                available through the shelter dashboard.
             </p>
 
         </div>
