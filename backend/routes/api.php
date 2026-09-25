@@ -23,7 +23,10 @@ use App\Http\Controllers\Admin\ShelterPetController;
 // ========================================
 // ADOPTER CONTROLLERS
 // ========================================
-use App\Http\Controllers\Adopter\AdopterDashboardController;
+// IMPORTANT:
+// AdopterDashboardController is inside:
+// app/Http/Controllers/Auth/Adopter/
+use App\Http\Controllers\Auth\Adopter\AdopterDashboardController;
 
 // ========================================
 // API CONTROLLERS
@@ -35,6 +38,11 @@ use App\Http\Controllers\Api\ShelterController as ApiShelterController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ShelterApplicationController;
+
+// ========================================
+// CHATBOT CONTROLLER
+// ========================================
+use App\Http\Controllers\ChatbotController;
 
 
 // ========================================
@@ -54,6 +62,16 @@ Route::post('/auth/staff/register', [ShelterRegisterController::class, 'register
 Route::get('/pets', [PetController::class, 'index']);
 
 Route::get('/shelters', [ApiShelterController::class, 'index']);
+
+
+// ========================================
+// AI CHATBOT
+// ========================================
+
+Route::post(
+    '/chatbot/message',
+    [ChatbotController::class, 'message']
+);
 
 
 // ========================================
@@ -163,10 +181,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // SHELTER DASHBOARD
     // ========================================
 
-    // IMPORTANT:
-    // Shelter dashboard now uses ShelterController
-    // This ensures dashboard data is filtered by
-    // the logged-in shelter staff's shelter_id.
+    // Shelter dashboard uses ShelterController.
+    // Dashboard data is filtered by the logged-in
+    // shelter staff's shelter_id.
 
     Route::get(
         '/shelter/dashboard',
@@ -201,6 +218,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete(
         '/shelter/pets/{id}',
         [PetController::class, 'destroy']
+    );
+
+
+    // ========================================
+    // SHELTER PET MEDICAL RECORDS
+    // ========================================
+
+    // View medical records for a specific pet
+    Route::get(
+        '/shelter/pets/{id}/medical-records',
+        [PetController::class, 'getMedicalRecords']
+    );
+
+    // Add a medical record for a specific pet
+    Route::post(
+        '/shelter/pets/{id}/medical-records',
+        [PetController::class, 'storeMedicalRecord']
     );
 
 
@@ -309,7 +343,7 @@ Route::middleware([
 
     Route::get(
         '/complaints',
-        [AdminComplaintController::class, 'index']
+        [AdminComplaintController::class, 'show']
     );
 
     Route::get(

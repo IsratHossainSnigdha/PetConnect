@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Adopter;
+namespace App\Http\Controllers\Auth\Adopter;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
