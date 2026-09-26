@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\ShelterController as ApiShelterController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ShelterApplicationController;
+use App\Http\Controllers\Api\SettingsController;
 
 
 // ========================================
@@ -82,6 +83,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    // ========================================
+    // USER SETTINGS
+    // ========================================
+    //
+    // Writes go through sp_save_user_settings, which owns the transaction and
+    // whose UPDATE fires trg_log_user_settings_change to record what changed.
+
+    Route::get('/settings', [SettingsController::class, 'show']);
+
+    Route::put('/settings', [SettingsController::class, 'update']);
+
+    Route::get('/settings/history', [SettingsController::class, 'history']);
+
 
     Route::get('/user/profile', [ProfileController::class, 'show']);
 
