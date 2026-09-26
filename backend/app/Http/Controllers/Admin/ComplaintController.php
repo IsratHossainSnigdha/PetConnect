@@ -281,7 +281,7 @@ class ComplaintController extends Controller
         ]);
 
         $complaint = DB::selectOne(
-            "SELECT id, subject, status FROM complaints WHERE id = ?",
+            "SELECT id, subject, status, user_id FROM complaints WHERE id = ?",
             [$id]
         );
 
@@ -290,6 +290,26 @@ class ComplaintController extends Controller
         }
 
         $newStatus = $validated['status'];
+
+        /*
+        |----------------------------------------------------------------------
+        | REMEMBER THE HIGH-WATER MARK OF THE NOTIFICATIONS TABLE
+        |----------------------------------------------------------------------
+        |
+        | We never INSERT a notification here. The database does it on its own:
+        | the trigger trg_notify_user_on_complaint_resolved fires on the UPDATE
+        | below and writes one for the complaint owner.
+        |
+        | To be able to SHOW the admin that it happened, we note the largest
+        | notification id that exists BEFORE the update. Anything above this
+        | afterwards was created by the trigger, not by us.
+        |
+        | COALESCE(..., 0) because MAX() on an empty table returns NULL, and
+        | "id > NULL" matches nothing.
+        */
+        $notificationsBefore = DB::selectOne(
+            "SELECT COALESCE(MAX(id), 0) AS max_id FROM notifications"
+        )->max_id;
 
         // Who is doing this? The `admin` middleware has already guaranteed this
         // request belongs to a logged-in platform_admin, so there is always a
@@ -411,6 +431,38 @@ class ComplaintController extends Controller
             ], 500);
         }
 
+        /*
+        |----------------------------------------------------------------------
+        | WHAT DID THE TRIGGER DO?
+        |----------------------------------------------------------------------
+        |
+        | Now that the transaction has COMMITted, anything in notifications
+        | above the id we noted earlier was inserted by the trigger. There is no
+        | INSERT INTO notifications anywhere in this controller - if a row comes
+        | back here, the database created it by itself.
+        |
+        | This is only read so the admin page can confirm the owner was told.
+        | Resolving is the only status the trigger reacts to, so for Pending,
+        | Rejected or Escalated this correctly comes back empty.
+        */
+        $notification = DB::selectOne(
+            "SELECT
+                 notifications.id,
+                 notifications.user_id,
+                 notifications.title,
+                 notifications.message,
+                 notifications.created_at,
+                 users.name  AS user_name,
+                 users.email AS user_email
+             FROM notifications
+             JOIN users ON users.id = notifications.user_id
+             WHERE notifications.id > ?
+               AND notifications.user_id = ?
+             ORDER BY notifications.id DESC
+             LIMIT 1",
+            [$notificationsBefore, $complaint->user_id]
+        );
+
         return response()->json([
             'message'   => 'Complaint marked as ' . $newStatus . '.',
             // Read the row back so the response shows what is actually stored.
@@ -429,6 +481,8 @@ class ComplaintController extends Controller
                  WHERE complaints.id = ?",
                 [$id]
             ),
+            // null unless the trigger fired.
+            'notification' => $notification,
         ]);
     }
 

@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  Bell,
 } from 'lucide-react';
 
 import {
@@ -75,6 +76,9 @@ export default function AdminComplaints() {
   const [escalating, setEscalating] = useState(false);
   const [escalateResult, setEscalateResult] = useState(null);
 
+  // What the notification trigger did on the last status change, if anything.
+  const [triggerNote, setTriggerNote] = useState(null);
+
   /*
   | READ  ->  GET /api/admin/complaints
   */
@@ -107,9 +111,28 @@ export default function AdminComplaints() {
     if (complaint.status === newStatus) return;
 
     setSavingId(complaint.id);
+    setTriggerNote(null);
 
     try {
-      await updateComplaintStatus(complaint.id, newStatus);
+      const data = await updateComplaintStatus(complaint.id, newStatus);
+
+      /*
+      | data.notification is only present when the DATABASE created one.
+      |
+      | Nothing in this file, and nothing in the controller, inserts a
+      | notification. The trigger trg_notify_user_on_complaint_resolved fires
+      | on the UPDATE inside MySQL and writes it. So a non-null value here is
+      | the trigger reporting for itself - and it stays null for Pending,
+      | Rejected and Escalated, because the trigger only reacts to Resolved.
+      */
+      if (data.notification) {
+        setTriggerNote({
+          to: data.notification.user_name,
+          email: data.notification.user_email,
+          message: data.notification.message,
+        });
+      }
+
       // Re-read from the database so the table and the summary counts both
       // reflect what is actually stored.
       await loadComplaints();
@@ -317,6 +340,18 @@ export default function AdminComplaints() {
           background: rgba(217,70,239,0.09); color: #86198f;
           border: 1px solid rgba(217,70,239,0.25);
         }
+        .cp-trigger-note {
+          margin-bottom: 14px; padding: 11px 13px; border-radius: 9px;
+          background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.28);
+          font-size: 12.5px; line-height: 1.55; color: #065f46;
+        }
+        .cp-trigger-head {
+          display: flex; align-items: center; gap: 7px; margin-bottom: 5px;
+        }
+        .cp-trigger-body {
+          font-style: italic; margin-bottom: 4px; color: #047857;
+        }
+
         .cp-escalate-note.bad {
           background: rgba(239,68,68,0.09); color: #b91c1c;
           border: 1px solid rgba(239,68,68,0.25);
@@ -573,6 +608,25 @@ export default function AdminComplaints() {
                     complaint(s) and escalated {escalateResult.escalated}.
                   </span>
                 )}
+              </div>
+            )}
+
+            {/*
+              Proof that the trigger ran. This block is the only place the
+              trigger becomes visible, because the notification itself belongs
+              to the complaint OWNER, not to the admin looking at this page.
+            */}
+            {triggerNote && (
+              <div className="cp-trigger-note">
+                <div className="cp-trigger-head">
+                  <Bell size={14} />
+                  <strong>The database notified {triggerNote.to} automatically</strong>
+                </div>
+                <div className="cp-trigger-body">"{triggerNote.message}"</div>
+                <div className="cp-muted">
+                  Written by the trigger trg_notify_user_on_complaint_resolved, not by
+                  this page. Sent to {triggerNote.email}.
+                </div>
               </div>
             )}
 
