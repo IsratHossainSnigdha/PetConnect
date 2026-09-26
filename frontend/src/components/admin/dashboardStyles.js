@@ -37,6 +37,16 @@ const dashboardStyles = `
           animation: globalMeshFlow 18s ease infinite;
           position: relative;
           display: flex;
+
+          /* Must be stated explicitly, not left to the default.
+             pages/Settings.css reuses this same class name for a page with a
+             TOP navbar, so it sets flex-direction: column. That file is a
+             plain .css import, so Vite loads it globally and it never
+             unmounts - it applies on this page too. Without this line the
+             sidebar and main area stack vertically and the content is pushed
+             off screen. */
+          flex-direction: row;
+
           overflow: hidden;
           color: #102c45;
         }

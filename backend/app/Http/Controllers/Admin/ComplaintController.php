@@ -73,8 +73,8 @@ class ComplaintController extends Controller
         $params = [];
 
         if ($request->query('status')) {
-            // The column is ENUM('Pending','Resolved','Rejected') - the value
-            // must match exactly, capital letter included.
+            // The column is ENUM('Pending','Resolved','Rejected','Escalated')
+            // - the value must match exactly, capital letter included.
             $sql .= " AND complaints.status = ?";
             $params[] = $request->query('status');
         }
@@ -127,10 +127,107 @@ class ComplaintController extends Controller
                 // ?? 0 because GROUP BY only returns rows for statuses that
                 // actually exist. With no rejected complaints there is no
                 // 'Rejected' row at all, and we want 0 rather than an error.
-                'pending'  => $counts['Pending']  ?? 0,
-                'resolved' => $counts['Resolved'] ?? 0,
-                'rejected' => $counts['Rejected'] ?? 0,
+                'pending'   => $counts['Pending']   ?? 0,
+                'resolved'  => $counts['Resolved']  ?? 0,
+                'rejected'  => $counts['Rejected']  ?? 0,
+                'escalated' => $counts['Escalated'] ?? 0,
             ],
+        ]);
+    }
+
+    /**
+     * ESCALATE OLD COMPLAINTS  ->  POST /api/admin/complaints/escalate
+     *
+     * This endpoint does almost nothing itself. All the work happens inside
+     * MySQL, in the stored procedure sp_escalate_old_complaints, which loops
+     * over the pending complaints one at a time and flags the ones that have
+     * been waiting too long.
+     *
+     * The procedure is in database/procedures/sp_escalate_old_complaints.sql
+     * and is installed by a migration.
+     */
+    public function escalateOld(Request $request)
+    {
+        /*
+        |----------------------------------------------------------------------
+        | HOW MANY DAYS IS "TOO LONG"
+        |----------------------------------------------------------------------
+        |
+        | 7 by default, because that is the rule in the task. It is accepted as
+        | an argument rather than hardcoded inside the procedure so the same
+        | procedure can be reused if the rule changes, and so it is easy to
+        | demonstrate with a smaller number.
+        |
+        | Cast to int. The value goes into an INT parameter, and casting here
+        | means a request sending days=abc becomes 0 and gets caught by the
+        | check below instead of reaching MySQL.
+        */
+        $maxDays = (int) $request->input('days', 7);
+
+        if ($maxDays < 1) {
+            return response()->json([
+                'message' => 'days must be a whole number of at least 1.',
+            ], 422);
+        }
+
+        /*
+        |----------------------------------------------------------------------
+        | CALLING A PROCEDURE THAT HAS OUT PARAMETERS
+        |----------------------------------------------------------------------
+        |
+        | The procedure signature is:
+        |
+        |     sp_escalate_old_complaints(IN p_max_days, OUT p_checked, OUT p_escalated)
+        |
+        | An IN parameter is a normal value, so it uses a ? placeholder like any
+        | other query - MySQL never sees it as SQL text, which is what stops
+        | injection.
+        |
+        | An OUT parameter cannot be a ?, because the procedure needs somewhere
+        | to WRITE to. So we hand it two MySQL session variables instead. The
+        | @ prefix means "session variable": it belongs to this one database
+        | connection and lives until the connection closes, which is how the
+        | values survive long enough for the next query to read them.
+        |
+        | So this is always two steps - CALL to run it, then SELECT to collect
+        | what it wrote. A procedure has no return value the way a PHP function
+        | does; OUT parameters are how it reports back.
+        */
+        DB::statement(
+            'CALL sp_escalate_old_complaints(?, @checked, @escalated)',
+            [$maxDays]
+        );
+
+        $result = DB::selectOne(
+            'SELECT @checked AS checked, @escalated AS escalated'
+        );
+
+        // The rows the loop just changed, so the admin can see WHICH complaints
+        // were escalated rather than only a number.
+        $escalated = DB::select(
+            "SELECT
+                 complaints.id,
+                 complaints.subject,
+                 complaints.category,
+                 complaints.status,
+                 complaints.created_at,
+                 DATEDIFF(NOW(), complaints.created_at) AS days_pending,
+                 users.name AS user_name
+             FROM complaints
+             JOIN users ON users.id = complaints.user_id
+             WHERE complaints.status = 'Escalated'
+             ORDER BY complaints.created_at ASC"
+        );
+
+        return response()->json([
+            'message' => $result->escalated > 0
+                ? $result->escalated . ' complaint(s) escalated for admin attention.'
+                : 'No complaints have been pending longer than ' . $maxDays . ' days.',
+            // (int) because MySQL hands session variables back as strings.
+            'checked'   => (int) $result->checked,
+            'escalated' => (int) $result->escalated,
+            'max_days'  => $maxDays,
+            'complaints' => $escalated,
         ]);
     }
 
@@ -168,11 +265,15 @@ class ComplaintController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            // These three strings are exactly the values the ENUM allows.
+            // These four strings are exactly the values the ENUM allows.
             // Keep this list and the migration's ENUM identical - if they
             // drift apart, validation passes and then the UPDATE fails with a
             // raw SQL error.
-            'status' => ['required', 'in:Pending,Resolved,Rejected'],
+            //
+            // 'Escalated' is in the list because the loop can set it, so an
+            // admin has to be able to move such a complaint on to Resolved or
+            // Rejected afterwards.
+            'status' => ['required', 'in:Pending,Resolved,Rejected,Escalated'],
         ]);
 
         $exists = DB::selectOne("SELECT id FROM complaints WHERE id = ?", [$id]);
