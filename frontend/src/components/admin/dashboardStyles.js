@@ -252,6 +252,21 @@ const dashboardStyles = `
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
           border-bottom: 1px solid rgba(255, 255, 255, 0.8);
           flex-shrink: 0;
+
+          /* These two lines are what let the notification dropdown sit on top
+             of the page instead of behind the stat cards.
+
+             backdrop-filter above creates a STACKING CONTEXT on this navbar,
+             and .stat-card has backdrop-filter too. Both were at z-index auto,
+             so they painted in DOM order - and .dash-content comes after this
+             navbar, which put the cards in front. The dropdown's own z-index
+             could not help, because it was trapped inside this context and can
+             only compete with things inside it.
+
+             Giving the navbar a real z-index lifts the whole context, dropdown
+             included, above the content below it. */
+          position: relative;
+          z-index: 50;
         }
 
         .dash-welcome h1 {
