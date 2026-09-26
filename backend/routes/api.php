@@ -298,10 +298,13 @@ Route::middleware([
         [ShelterPetController::class, 'index']
     );
 
-    Route::post(
-        '/shelters/{shelter}/pets',
-        [ShelterPetController::class, 'store']
-    );
+    // No POST route for pets (issue #61). Creating pets is a Shelter Staff
+    // job - see POST /api/shelter/pets. Removing the route, not just the
+    // button, is what actually takes the ability away: a hidden button is
+    // still callable with curl.
+    //
+    // PUT and DELETE stay, so an admin can still correct or remove a listing
+    // for moderation.
 
     Route::put(
         '/shelters/{shelter}/pets/{pet}',

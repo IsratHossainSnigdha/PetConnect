@@ -25,6 +25,19 @@ import {
 
 import { fetchMe, logout } from '../../api/auth';
 
+/*
+| The SAME module the dedicated Complaints page uses (issue #61).
+|
+| The dashboard used to show three complaints written into the JSX by hand -
+| "Shelter #SLT003 Conditions", "Adoption Fee Discrepancy" and so on. They were
+| invented, so they never changed, and they disagreed with the Complaints page
+| that was reading the real table.
+|
+| Importing the same function means there is one source of truth: whatever
+| /api/admin/complaints returns is what both screens show.
+*/
+import { fetchAdminComplaints } from '../../api/adminComplaints';
+
 // Extracted pieces of this page (issue #34)
 import AdminSidebar from '../../components/admin/AdminSidebar';
 import AdminTopbar from '../../components/admin/AdminTopbar';
@@ -87,6 +100,10 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
   // "View" popup showing one shelter plus its related staff rows.
   const [viewing, setViewing] = useState(null);
 
+  // The three most recent complaints, straight from the database. Empty until
+  // the request lands - never seeded with made-up rows.
+  const [complaints, setComplaints] = useState([]);
+
   // The signed-in admin (from GET /auth/me) and the dashboard counters
   // (from GET /admin/stats, which are COUNT/GROUP BY aggregates).
   const [currentUser, setCurrentUser] = useState(null);
@@ -108,12 +125,19 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchMe(), fetchStats(), fetchAdmins()])
-      .then(([user, statsData, adminData]) => {
+    Promise.all([fetchMe(), fetchStats(), fetchAdmins(), fetchAdminComplaints()])
+      .then(([user, statsData, adminData, complaintData]) => {
         if (cancelled) return;
         setCurrentUser(user);
         setStats(statsData.stats);
         setAdmins(adminData.admins);   // fills the "Assigned Admin" dropdown
+
+        /*
+        | The API already returns newest first (ORDER BY created_at DESC), so
+        | the first three are the most recent. slice() copies rather than
+        | mutating, which matters because the same array is state.
+        */
+        setComplaints((complaintData.complaints || []).slice(0, 3));
       })
       .catch(() => {
         // RequireAuth already handles an expired session by redirecting to
@@ -569,48 +593,44 @@ export default function AdminDashboard({ darkMode, toggleDarkMode, setCurrentPag
                   <button className="action-btn-outline" onClick={() => setActiveTab('complaints')}>View All</button>
                 </div>
 
+                {/*
+                  Real rows from the database (issue #61). Three hardcoded
+                  complaints used to sit here; they never changed and they
+                  disagreed with the Complaints page.
+
+                  There is no priority column in the complaints table, so the
+                  badge shows the STATUS instead of an invented High/Medium/Low.
+                  Showing a priority the database does not store would be the
+                  same mistake in a new costume.
+                */}
                 <div className="complaints-list">
-                  <div className="complaint-item">
-                    <div className="complaint-left">
-                      <div className="complaint-icon"><Flag size={16} /></div>
-                      <div className="complaint-details">
-                        <h4>Shelter #SLT003 Conditions</h4>
-                        <p>Reported regarding overcrowding in enclosures.</p>
+                  {complaints.length === 0 ? (
+                    <div className="complaint-item">
+                      <div className="complaint-left">
+                        <div className="complaint-details">
+                          <p>No complaints have been submitted yet.</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="complaint-right">
-                      <span className="priority-badge high">High</span>
-                      <span className="complaint-time">2 hrs ago</span>
-                    </div>
-                  </div>
-
-                  <div className="complaint-item">
-                    <div className="complaint-left">
-                      <div className="complaint-icon"><Flag size={16} /></div>
-                      <div className="complaint-details">
-                        <h4>Adoption Fee Discrepancy</h4>
-                        <p>User reported incorrect listing fee at Paws Rescue.</p>
+                  ) : (
+                    complaints.map((c) => (
+                      <div className="complaint-item" key={c.id}>
+                        <div className="complaint-left">
+                          <div className="complaint-icon"><Flag size={16} /></div>
+                          <div className="complaint-details">
+                            <h4>{c.subject}</h4>
+                            <p>{c.description}</p>
+                          </div>
+                        </div>
+                        <div className="complaint-right">
+                          <span className={'priority-badge ' + c.status.toLowerCase()}>
+                            {c.status}
+                          </span>
+                          <span className="complaint-time">{c.user_name}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="complaint-right">
-                      <span className="priority-badge medium">Medium</span>
-                      <span className="complaint-time">Yesterday</span>
-                    </div>
-                  </div>
-
-                  <div className="complaint-item">
-                    <div className="complaint-left">
-                      <div className="complaint-icon"><Flag size={16} /></div>
-                      <div className="complaint-details">
-                        <h4>Unresponsive Shelter Admin</h4>
-                        <p>City Kitty Care not responding to adoption queries.</p>
-                      </div>
-                    </div>
-                    <div className="complaint-right">
-                      <span className="priority-badge low">Low</span>
-                      <span className="complaint-time">3 days ago</span>
-                    </div>
-                  </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
