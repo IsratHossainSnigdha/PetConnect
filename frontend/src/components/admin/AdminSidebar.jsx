@@ -83,9 +83,15 @@ export default function AdminSidebar({ activeTab, onTabChange, onLogout }) {
             <BarChart3 size={18} /> Reports
           </button>
 
+          {/*
+            navigate, not onTabChange. This used to set a tab called 'settings',
+            but the dashboard never reads activeTab to decide what to render -
+            it only uses it to highlight the button here. So clicking Settings
+            highlighted itself and nothing else happened.
+          */}
           <button
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => onTabChange('settings')}
+            onClick={() => navigate('/settings')}
           >
             <Settings size={18} /> Settings
           </button>
