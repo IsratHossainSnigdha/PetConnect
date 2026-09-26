@@ -328,6 +328,13 @@ Route::middleware([
         [AdminComplaintController::class, 'escalateOld']
     );
 
+    // The admin audit trail written by the transaction in
+    // ComplaintController@update. Optional filter: ?complaint_id=12
+    Route::get(
+        '/activities',
+        [AdminComplaintController::class, 'activities']
+    );
+
     Route::get(
         '/complaints/{id}',
         [AdminComplaintController::class, 'show']
