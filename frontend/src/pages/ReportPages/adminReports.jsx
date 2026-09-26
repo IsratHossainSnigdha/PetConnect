@@ -366,7 +366,7 @@ export default function AdminReports() {
 
           <div className="rp-heading">
             <h2>Reports</h2>
-            <p>Every figure here is calculated by the database with COUNT and GROUP BY.</p>
+            <p>Every figure here comes from a database VIEW - a stored SELECT the database re-runs on each read.</p>
           </div>
 
           {loading && (
@@ -442,7 +442,7 @@ export default function AdminReports() {
                 {/* ---- pets per shelter ---- */}
                 <div className="rp-card">
                   <h3>Pets per shelter</h3>
-                  <p className="rp-sql">shelters LEFT JOIN pets · GROUP BY shelter</p>
+                  <p className="rp-sql">v_report_pets_per_shelter · shelters LEFT JOIN pets · GROUP BY shelter</p>
 
                   {reports.pets_per_shelter.length === 0 ? (
                     <div className="rp-empty">No shelters yet.</div>
@@ -468,7 +468,7 @@ export default function AdminReports() {
                 {/* ---- pets by status ---- */}
                 <div className="rp-card">
                   <h3>Pets by status</h3>
-                  <p className="rp-sql">GROUP BY pets.status</p>
+                  <p className="rp-sql">v_report_pets_by_status · GROUP BY pets.status</p>
 
                   {reports.pets_by_status.length === 0 ? (
                     <div className="rp-empty">No pets yet.</div>
@@ -488,7 +488,7 @@ export default function AdminReports() {
                 {/* ---- pets by type ---- */}
                 <div className="rp-card">
                   <h3>Pets by type</h3>
-                  <p className="rp-sql">GROUP BY pets.type</p>
+                  <p className="rp-sql">v_report_pets_by_type · GROUP BY pets.type</p>
 
                   {reports.pets_by_type.length === 0 ? (
                     <div className="rp-empty">No pets yet.</div>
@@ -508,7 +508,7 @@ export default function AdminReports() {
                 {/* ---- applications by outcome ---- */}
                 <div className="rp-card">
                   <h3>Applications by outcome</h3>
-                  <p className="rp-sql">GROUP BY applications.status</p>
+                  <p className="rp-sql">v_report_applications_by_status · GROUP BY applications.status</p>
 
                   {reports.applications_by_status.length === 0 ? (
                     <div className="rp-empty">No applications yet.</div>
@@ -543,7 +543,7 @@ export default function AdminReports() {
                 {/* ---- complaints by category ---- */}
                 <div className="rp-card">
                   <h3>Complaints by category</h3>
-                  <p className="rp-sql">GROUP BY complaints.category</p>
+                  <p className="rp-sql">v_report_complaints_by_category · GROUP BY complaints.category</p>
 
                   {reports.complaints_by_category.length === 0 ? (
                     <div className="rp-empty">No complaints yet.</div>
@@ -564,7 +564,7 @@ export default function AdminReports() {
                 {/* ---- applications per day ---- */}
                 <div className="rp-card">
                   <h3>Applications per day</h3>
-                  <p className="rp-sql">GROUP BY DATE(created_at) · last 30 days</p>
+                  <p className="rp-sql">v_report_applications_by_day · GROUP BY DATE(created_at) · last 30 days</p>
 
                   {reports.applications_by_day.length === 0 ? (
                     <div className="rp-empty">No applications in the last 30 days.</div>
@@ -592,7 +592,8 @@ export default function AdminReports() {
                 <div className="rp-card wide">
                   <h3>Busiest shelters</h3>
                   <p className="rp-sql">
-                    shelters LEFT JOIN pets LEFT JOIN applications · GROUP BY shelter · HAVING pets_listed &gt; 0
+                    v_report_busiest_shelters · shelters LEFT JOIN pets LEFT JOIN applications
+                    · GROUP BY shelter · HAVING pets_listed &gt; 0
                   </p>
 
                   {reports.busiest_shelters.length === 0 ? (
