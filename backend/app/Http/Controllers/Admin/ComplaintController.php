@@ -346,53 +346,85 @@ class ComplaintController extends Controller
         DB::beginTransaction();
 
         try {
-            /*
-            | resolved_by / resolved_at only mean something for a complaint that
-            | is actually resolved. Moving one back to Pending or Rejected has
-            | to CLEAR them, otherwise the row would keep claiming it was
-            | resolved by someone.
-            */
-            $resolvedBy = $newStatus === 'Resolved' ? $adminId : null;
-
-            /*
-            | resolved_at is decided by MySQL, not PHP.
-            |
-            | Laravel's app timezone is UTC (config/app.php) while the MySQL
-            | server runs on local time. Passing PHP's now() as a bound value
-            | while updated_at uses NOW() would put two DIFFERENT times on the
-            | same row - here that was a six hour gap, and the notification the
-            | trigger writes quotes resolved_at, so the user would be told the
-            | wrong time.
-            |
-            | IF(? = 'Resolved', NOW(), NULL) keeps the whole decision inside
-            | the query: MySQL's clock fills it in when the complaint is being
-            | resolved, and NULL clears it for any other status. One clock, so
-            | the columns cannot disagree.
-            */
-            $affected = DB::update(
-                "UPDATE complaints
-                 SET status      = ?,
-                     resolved_by = ?,
-                     resolved_at = IF(? = 'Resolved', NOW(), NULL),
-                     updated_at  = NOW()
-                 WHERE id = ?",
-                [$newStatus, $resolvedBy, $newStatus, $id]
-            );
-
-            /*
-            | DB::update returns HOW MANY ROWS it changed. Zero means the
-            | complaint vanished between the SELECT above and this UPDATE, so
-            | the audit row we are about to write would describe something that
-            | never happened.
-            |
-            | Throwing here jumps to the catch block, which ROLLBACKs. This is
-            | the "if the complaint update fails, no activity record is
-            | created" half of the acceptance criteria.
-            */
-            if ($affected === 0) {
-                throw new \RuntimeException(
-                    'The complaint could not be updated, so nothing was saved.'
+            if ($newStatus === 'Resolved') {
+                /*
+                |--------------------------------------------------------------
+                | RESOLVING GOES THROUGH THE STORED PROCEDURE      (issue #62)
+                |--------------------------------------------------------------
+                |
+                | This controller does NOT update the row itself any more. It
+                | hands the job to sp_resolve_complaint, which lives in the
+                | database (database/procedures/sp_resolve_complaint.sql).
+                |
+                | The procedure owns the rules: does the complaint exist, is the
+                | admin real, is it already resolved, and only then the UPDATE
+                | that sets status, resolved_by and resolved_at. Keeping them
+                | there means every caller obeys them - this page, another
+                | service, or someone typing SQL by hand.
+                |
+                | The two ? are IN parameters, so they are bound like any other
+                | value. @st and @msg are session variables catching the two OUT
+                | parameters, read back by the SELECT underneath.
+                |
+                | Note this CALL sits INSIDE the transaction opened above, so
+                | the procedure's UPDATE is rolled back with everything else if
+                | the audit insert below fails.
+                */
+                DB::statement(
+                    'CALL sp_resolve_complaint(?, ?, @st, @msg)',
+                    [$id, $adminId]
                 );
+
+                $outcome = DB::selectOne('SELECT @st AS status, @msg AS message');
+
+                /*
+                | The procedure reports failure through p_status rather than by
+                | raising an error, so we have to check it. Throwing here jumps
+                | to the catch block, which ROLLBACKs - no audit row is written
+                | for a resolve that did not happen.
+                */
+                if ($outcome->status !== 'success') {
+                    // DomainException, not RuntimeException, so the catch
+                    // blocks below can tell "you asked for something that is
+                    // not allowed" apart from "the database broke".
+                    throw new \DomainException($outcome->message);
+                }
+            } else {
+                /*
+                | Any other status is still a plain UPDATE. The procedure is
+                | specifically for RESOLVING; there is no rule to enforce when
+                | moving a complaint back to Pending or marking it Rejected.
+                |
+                | resolved_by / resolved_at are cleared here, because a
+                | complaint that is no longer resolved must not keep claiming
+                | it was resolved by someone.
+                |
+                | resolved_at uses MySQL's NOW(), never PHP's. Laravel's app
+                | timezone is UTC while the MySQL server runs on local time, so
+                | mixing the two put a six hour gap between resolved_at and
+                | updated_at on the same row.
+                */
+                $affected = DB::update(
+                    "UPDATE complaints
+                     SET status      = ?,
+                         resolved_by = NULL,
+                         resolved_at = NULL,
+                         updated_at  = NOW()
+                     WHERE id = ?",
+                    [$newStatus, $id]
+                );
+
+                /*
+                | DB::update returns HOW MANY ROWS it changed. Zero means the
+                | complaint vanished between the SELECT above and this UPDATE,
+                | so the audit row we are about to write would describe
+                | something that never happened.
+                */
+                if ($affected === 0) {
+                    throw new \RuntimeException(
+                        'The complaint could not be updated, so nothing was saved.'
+                    );
+                }
             }
 
             // Second write: the audit trail. If THIS fails, the UPDATE above is
@@ -416,12 +448,27 @@ class ComplaintController extends Controller
             // everyone else. Before this line, no other connection could see
             // either change.
             DB::commit();
+        } catch (\DomainException $e) {
+            /*
+            | A rule the PROCEDURE enforced said no - already resolved, or the
+            | complaint disappeared. Nothing is broken, so this is not a 500.
+            | 409 Conflict means "the request is valid but clashes with the
+            | current state of the thing".
+            |
+            | The ROLLBACK still matters: the audit row must not survive a
+            | resolve that never happened.
+            */
+            DB::rollBack();
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 409);
         } catch (\Throwable $e) {
             /*
-            | Something failed. ROLLBACK throws away EVERY change made since
-            | beginTransaction - including the UPDATE that already "worked".
-            | The database ends up exactly as it was before this request, with
-            | no half-finished data left behind.
+            | Something actually failed. ROLLBACK throws away EVERY change made
+            | since beginTransaction - including the UPDATE that already
+            | "worked". The database ends up exactly as it was before this
+            | request, with no half-finished data left behind.
             */
             DB::rollBack();
 
