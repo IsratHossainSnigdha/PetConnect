@@ -23,7 +23,7 @@ use App\Http\Controllers\Admin\ShelterPetController;
 // ========================================
 // ADOPTER CONTROLLERS
 // ========================================
-use App\Http\Controllers\Adopter\AdopterDashboardController;
+use App\Http\Controllers\Auth\Adopter\AdopterDashboardController;
 
 // ========================================
 // API CONTROLLERS
@@ -316,6 +316,16 @@ Route::middleware([
     Route::get(
         '/complaints',
         [AdminComplaintController::class, 'index']
+    );
+
+    // Runs the sp_escalate_old_complaints loop inside MySQL, which flags every
+    // complaint that has been Pending for more than 7 days.
+    //
+    // POST, not GET, because it CHANGES data. A GET is supposed to be safe to
+    // repeat - browsers and proxies pre-fetch them - and this one writes.
+    Route::post(
+        '/complaints/escalate',
+        [AdminComplaintController::class, 'escalateOld']
     );
 
     Route::get(

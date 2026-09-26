@@ -53,3 +53,23 @@ export async function updateComplaintStatus(id, status) {
     body: JSON.stringify({ status }),
   });
 }
+
+/**
+ * ESCALATE OLD COMPLAINTS  ->  POST /api/admin/complaints/escalate
+ *
+ * Nothing is calculated in the browser here. This one request makes MySQL run
+ * the stored procedure sp_escalate_old_complaints, which LOOPS over the
+ * pending complaints one at a time and marks any that have been waiting more
+ * than `days` days as 'Escalated'.
+ *
+ * POST rather than GET because it changes rows in the database.
+ *
+ * Comes back as { message, checked, escalated, max_days, complaints }, where
+ * `checked` and `escalated` are the procedure's two OUT parameters.
+ */
+export async function escalateOldComplaints(days = 7) {
+  return apiFetch('/admin/complaints/escalate', {
+    method: 'POST',
+    body: JSON.stringify({ days }),
+  });
+}
