@@ -68,7 +68,14 @@ import ShelterDetail from "./pages/ShelterPages/shelterDetail";
 // ========================================
 import Settings from "./pages/Settings";
 
+// ========================================
+// CHATBOT
+// ========================================
+import Chatbot from "./components/Chatbot";
+
+
 export default function App() {
+
     // ========================================
     // USER
     // ========================================
@@ -81,12 +88,21 @@ export default function App() {
                 // Backward compatibility
                 localStorage.getItem("user");
 
-            return savedUser ? JSON.parse(savedUser) : null;
+            return savedUser
+                ? JSON.parse(savedUser)
+                : null;
+
         } catch (error) {
-            console.error("Error loading user:", error);
+
+            console.error(
+                "Error loading user:",
+                error
+            );
+
             return null;
         }
     });
+
 
     // ========================================
     // DARK MODE
@@ -96,173 +112,313 @@ export default function App() {
         return localStorage.getItem("darkMode") === "true";
     });
 
+
     // ========================================
     // TOGGLE DARK MODE
     // ========================================
 
     const toggleDarkMode = () => {
-        setDarkMode((previous) => !previous);
+
+        setDarkMode(
+            (previous) => !previous
+        );
+
     };
+
 
     // ========================================
     // SAVE DARK MODE
     // ========================================
 
     useEffect(() => {
+
         localStorage.setItem(
             "darkMode",
             darkMode.toString()
         );
+
     }, [darkMode]);
+
 
     // ========================================
     // SAVE USER
     // ========================================
 
     useEffect(() => {
+
         if (user) {
+
             // New authentication storage
             localStorage.setItem(
                 "petconnect_user",
                 JSON.stringify(user)
             );
 
-            // Backward compatibility with older pages
+            // Backward compatibility
             localStorage.setItem(
                 "user",
                 JSON.stringify(user)
             );
         }
+
     }, [user]);
 
+
+    // ========================================
+    // APP ROUTES
+    // ========================================
+
     return (
-        <Routes>
+        <>
 
-            {/* ========================================
-                LANDING PAGE
-            ======================================== */}
+            <Routes>
 
-            <Route
-                path="/"
-                element={<LandingPage />}
-            />
+                {/* ========================================
+                    LANDING PAGE
+                ======================================== */}
 
-            {/* ========================================
-                LOGIN
-            ======================================== */}
+                <Route
+                    path="/"
+                    element={
+                        <LandingPage />
+                    }
+                />
 
-            <Route
-                path="/login"
-                element={
-                    <LoginPage setUser={setUser} />
-                }
-            />
 
-            {/* ========================================
-                LOGIN COMPATIBILITY ROUTE
-            ======================================== */}
+                {/* ========================================
+                    LOGIN
+                ======================================== */}
 
-            <Route
-                path="/auth/login"
-                element={
-                    <LoginPage setUser={setUser} />
-                }
-            />
-
-            {/* ========================================
-                SIGNUP
-            ======================================== */}
-
-            <Route
-                path="/signup"
-                element={<GlobalSignup />}
-            />
-
-            <Route
-                path="/signup/adopter"
-                element={<AdopterSignup />}
-            />
-
-            <Route
-                path="/signup/shelter"
-                element={<ShelterSignup />}
-            />
-
-            <Route
-                path="/signup/staff"
-                element={<ShelterSignup />}
-            />
-
-            <Route
-                path="/signup/admin"
-                element={<AdminSignup />}
-            />
-
-            {/* ========================================
-                ADOPTER ROUTES
-            ======================================== */}
-
-            {/* ADOPTER DASHBOARD */}
-
-            <Route
-                path="/dashboard/adopter"
-                element={
-                    <RequireAuth>
-                        <AdopterDashboard
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
+                <Route
+                    path="/login"
+                    element={
+                        <LoginPage
+                            setUser={setUser}
                         />
-                    </RequireAuth>
-                }
-            />
+                    }
+                />
 
-            {/* ADOPTER APPLICATIONS */}
 
-            <Route
-                path="/applications/adopter"
-                element={
-                    <RequireAuth>
-                        <AdopterApplications
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
+                {/* ========================================
+                    LOGIN COMPATIBILITY ROUTE
+                ======================================== */}
+
+                <Route
+                    path="/auth/login"
+                    element={
+                        <LoginPage
+                            setUser={setUser}
                         />
-                    </RequireAuth>
-                }
-            />
+                    }
+                />
 
-            {/* ADOPTER COMPLAINTS */}
 
-            <Route
-                path="/complaints/adopter"
-                element={
-                    <RequireAuth>
-                        <AdopterComplaints
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
+                {/* ========================================
+                    SIGNUP
+                ======================================== */}
 
-            {/* ADOPTER PROFILE */}
+                <Route
+                    path="/signup"
+                    element={
+                        <GlobalSignup />
+                    }
+                />
 
-            <Route
-                path="/profile/adopter"
-                element={
-                    <RequireAuth>
-                        <AdopterProfile
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
+                <Route
+                    path="/signup/adopter"
+                    element={
+                        <AdopterSignup />
+                    }
+                />
 
-            {/* ========================================
-                SHELTER ROUTES
-            ======================================== */}
+                <Route
+                    path="/signup/shelter"
+                    element={
+                        <ShelterSignup />
+                    }
+                />
 
-            {/* SHELTER DASHBOARD */}
+                <Route
+                    path="/signup/staff"
+                    element={
+                        <ShelterSignup />
+                    }
+                />
+
+                <Route
+                    path="/signup/admin"
+                    element={
+                        <AdminSignup />
+                    }
+                />
+
+
+                {/* ========================================
+                    ADOPTER ROUTES
+                ======================================== */}
+
+                {/* ADOPTER DASHBOARD */}
+
+                <Route
+                    path="/dashboard/adopter"
+                    element={
+                        <RequireAuth>
+
+                            <AdopterDashboard
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADOPTER APPLICATIONS */}
+
+                <Route
+                    path="/applications/adopter"
+                    element={
+                        <RequireAuth>
+
+                            <AdopterApplications
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADOPTER COMPLAINTS */}
+
+                <Route
+                    path="/complaints/adopter"
+                    element={
+                        <RequireAuth>
+
+                            <AdopterComplaints
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADOPTER PROFILE */}
+
+                <Route
+                    path="/profile/adopter"
+                    element={
+                        <RequireAuth>
+
+                            <AdopterProfile
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ========================================
+                    SHELTER ROUTES
+                ======================================== */}
+
+                {/* SHELTER DASHBOARD */}
+
+                <Route
+                    path="/shelter/dashboard"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <ShelterDashboard
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* OLD SHELTER DASHBOARD ROUTE */}
+
+                <Route
+                    path="/dashboard/shelter"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <ShelterDashboard
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADD PET */}
+
+                <Route
+                    path="/shelter/pets/add"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <AddPet
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* OLD ADD PET ROUTE */}
+
+                <Route
+                    path="/dashboard/shelter/add-pet"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <AddPet
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
 
             <Route
                 path="/shelter/dashboard"
@@ -407,139 +563,323 @@ export default function App() {
                 }
             />
 
+                {/* MANAGE PETS */}
+
+                <Route
+                    path="/shelter/pets"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <ManagePets
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* PET MEDICAL RECORDS */}
+
+                <Route
+                    path="/shelter/pets/:id/medical-records"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <PetMedicalRecords
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* OLD MANAGE PETS ROUTE */}
+
+                <Route
+                    path="/dashboard/shelter/manage-pets"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <ManagePets
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* SHELTER APPLICATIONS */}
+
+                <Route
+                    path="/shelter/applications"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <ShelterApplicationsPage />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* SHELTER PROFILE */}
+
+                <Route
+                    path="/profile/shelter"
+                    element={
+                        <RequireAuth
+                            role="shelter_staff"
+                        >
+
+                            <MyProfile
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* GENERIC PROFILE */}
+
+                <Route
+                    path="/profile"
+                    element={
+                        <RequireAuth>
+
+                            <MyProfile
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ========================================
+                    SETTINGS
+                ======================================== */}
+
+                <Route
+                    path="/settings"
+                    element={
+                        <RequireAuth>
+
+                            <Settings
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ========================================
+                    ADMIN ROUTES
+                ======================================== */}
+
+                {/* ADMIN DASHBOARD */}
+
+                <Route
+                    path="/dashboard/admin"
+                    element={
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <AdminDashboard
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADMIN PROFILE */}
+
+                <Route
+                    path="/profile/admin"
+                    element={
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <AdminProfile
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADMIN SHELTER MANAGEMENT */}
+
+                <Route
+                    path="/shelters/admin"
+                    element={
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <AdminShelters
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* SHELTER DETAILS */}
+
+                <Route
+                    path="/shelters/admin/:id"
+                    element={
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <ShelterDetail
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADMIN COMPLAINTS */}
+
+                <Route
+                    path="/complaints/admin"
+                    element={
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <AdminComplaints
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ADMIN REPORTS */}
+
+                <Route
+                    path="/reports/admin"
+                    element={
+                        <RequireAuth
+                            role="platform_admin"
+                        >
+
+                            <AdminReports
+                                darkMode={darkMode}
+                                toggleDarkMode={
+                                    toggleDarkMode
+                                }
+                            />
+
+                        </RequireAuth>
+                    }
+                />
+
+
+                {/* ========================================
+                    404
+                ======================================== */}
+
+                <Route
+                    path="*"
+                    element={
+
+                        <div
+                            style={{
+                                minHeight: "100vh",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexDirection: "column",
+                                fontFamily:
+                                    "Arial, sans-serif",
+                            }}
+                        >
+
+                            <h1>404</h1>
+
+                            <p>
+                                Page Not Found
+                            </p>
+
+                        </div>
+                    }
+                />
+
+            </Routes>
+
+
             {/* ========================================
-                SETTINGS
+                PETCONNECT AI CHATBOT
             ======================================== */}
 
-            <Route
-                path="/settings"
-                element={
-                    <RequireAuth>
-                        <Settings
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
+            <Chatbot />
 
-            {/* ========================================
-                ADMIN ROUTES
-            ======================================== */}
-
-            {/* ADMIN DASHBOARD */}
-
-            <Route
-                path="/dashboard/admin"
-                element={
-                    <RequireAuth role="platform_admin">
-                        <AdminDashboard
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
-
-            {/* ADMIN PROFILE */}
-
-            <Route
-                path="/profile/admin"
-                element={
-                    <RequireAuth role="platform_admin">
-                        <MyProfile
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
-
-            {/* ADMIN SHELTER MANAGEMENT */}
-
-            <Route
-                path="/shelters/admin"
-                element={
-                    <RequireAuth role="platform_admin">
-                        <AdminShelters
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
-
-            {/* SHELTER DETAILS */}
-
-            <Route
-                path="/shelters/admin/:id"
-                element={
-                    <RequireAuth role="platform_admin">
-                        <ShelterDetail
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
-
-            {/* ADMIN COMPLAINTS */}
-
-            <Route
-                path="/complaints/admin"
-                element={
-                    <RequireAuth role="platform_admin">
-                        <AdminComplaints
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
-
-            {/* ADMIN REPORTS */}
-
-            <Route
-                path="/reports/admin"
-                element={
-                    <RequireAuth role="platform_admin">
-                        <AdminReports
-                            darkMode={darkMode}
-                            toggleDarkMode={toggleDarkMode}
-                        />
-                    </RequireAuth>
-                }
-            />
-
-            {/* ========================================
-                404
-            ======================================== */}
-
-            <Route
-                path="*"
-                element={
-                    <div
-                        style={{
-                            minHeight: "100vh",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexDirection: "column",
-                            fontFamily: "Arial, sans-serif",
-                        }}
-                    >
-                        <h1>404</h1>
-                        <p>Page Not Found</p>
-                    </div>
-                }
-            />
-
-        </Routes>
+        </>
     );
 }
 
 function ShelterApplicationsPage() {
+
     return (
+
         <div
             style={{
                 minHeight: "100vh",
@@ -549,9 +889,10 @@ function ShelterApplicationsPage() {
         >
             <h1>Adoption Requests</h1>
             <p>
-                Shelter adoption requests are available
-                through the shelter dashboard.
+                Shelter adoption requests are
+                available through the shelter dashboard.
             </p>
+
         </div>
     );
 }
