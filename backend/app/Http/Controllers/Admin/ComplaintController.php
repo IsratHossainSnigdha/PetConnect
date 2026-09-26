@@ -334,18 +334,29 @@ class ComplaintController extends Controller
             */
             $resolvedBy = $newStatus === 'Resolved' ? $adminId : null;
 
-            // NOW() is MySQL's own clock, not PHP's. One source of truth for
-            // time means rows cannot disagree about ordering.
-            $resolvedAt = $newStatus === 'Resolved' ? now() : null;
-
+            /*
+            | resolved_at is decided by MySQL, not PHP.
+            |
+            | Laravel's app timezone is UTC (config/app.php) while the MySQL
+            | server runs on local time. Passing PHP's now() as a bound value
+            | while updated_at uses NOW() would put two DIFFERENT times on the
+            | same row - here that was a six hour gap, and the notification the
+            | trigger writes quotes resolved_at, so the user would be told the
+            | wrong time.
+            |
+            | IF(? = 'Resolved', NOW(), NULL) keeps the whole decision inside
+            | the query: MySQL's clock fills it in when the complaint is being
+            | resolved, and NULL clears it for any other status. One clock, so
+            | the columns cannot disagree.
+            */
             $affected = DB::update(
                 "UPDATE complaints
                  SET status      = ?,
                      resolved_by = ?,
-                     resolved_at = ?,
+                     resolved_at = IF(? = 'Resolved', NOW(), NULL),
                      updated_at  = NOW()
                  WHERE id = ?",
-                [$newStatus, $resolvedBy, $resolvedAt, $id]
+                [$newStatus, $resolvedBy, $newStatus, $id]
             );
 
             /*
