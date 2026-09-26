@@ -301,6 +301,101 @@ const dashboardStyles = `
           border: 2px solid #e2edf5;
         }
 
+        /* The bell and its dropdown. position:relative on the wrapper is what
+           the absolutely positioned panel below anchors itself to. */
+        .bell-wrap {
+          position: relative;
+        }
+
+        .bell-panel {
+          position: absolute;
+          top: 48px;
+          right: 0;
+          width: 340px;
+          max-width: calc(100vw - 32px);
+          background: #fff;
+          border: 1px solid rgba(40, 105, 147, 0.18);
+          border-radius: 13px;
+          box-shadow: 0 10px 34px rgba(16, 44, 69, 0.16);
+          /* Above the rest of the dashboard, or the table would cover it. */
+          z-index: 60;
+          overflow: hidden;
+        }
+
+        .bell-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          border-bottom: 1px solid rgba(40, 105, 147, 0.12);
+          font-size: 13px;
+          color: #102c45;
+        }
+
+        .bell-count {
+          font-size: 11px;
+          color: #64748b;
+        }
+
+        /* Cap the height so a long list scrolls inside the panel instead of
+           running off the bottom of the screen. */
+        .bell-list {
+          max-height: 340px;
+          overflow-y: auto;
+        }
+
+        .bell-empty {
+          padding: 18px 14px;
+          font-size: 12.5px;
+          color: #64748b;
+          text-align: center;
+        }
+
+        .bell-item {
+          padding: 11px 14px;
+          border-bottom: 1px solid rgba(40, 105, 147, 0.08);
+        }
+
+        .bell-item:last-child {
+          border-bottom: none;
+        }
+
+        .bell-item.unread {
+          background: rgba(40, 105, 147, 0.05);
+        }
+
+        .bell-item-top {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 3px;
+        }
+
+        .bell-title {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #102c45;
+        }
+
+        .bell-time {
+          font-size: 10.5px;
+          color: #94a3b8;
+          white-space: nowrap;
+        }
+
+        .bell-msg {
+          font-size: 12px;
+          line-height: 1.5;
+          color: #334155;
+        }
+
+        .bell-to {
+          margin-top: 3px;
+          font-size: 10.5px;
+          color: #64748b;
+        }
+
         .admin-profile-pill {
           display: flex;
           align-items: center;

@@ -623,10 +623,7 @@ export default function AdminComplaints() {
                   <strong>The database notified {triggerNote.to} automatically</strong>
                 </div>
                 <div className="cp-trigger-body">"{triggerNote.message}"</div>
-                <div className="cp-muted">
-                  Written by the trigger trg_notify_user_on_complaint_resolved, not by
-                  this page. Sent to {triggerNote.email}.
-                </div>
+                <div className="cp-muted">Sent to {triggerNote.email}.</div>
               </div>
             )}
 

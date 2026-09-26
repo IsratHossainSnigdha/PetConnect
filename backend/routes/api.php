@@ -335,6 +335,13 @@ Route::middleware([
         [AdminComplaintController::class, 'activities']
     );
 
+    // Feed for the bell in the admin topbar. Shows notifications generated for
+    // ALL users, unlike /api/notifications which only shows your own.
+    Route::get(
+        '/notifications',
+        [AdminComplaintController::class, 'notifications']
+    );
+
     Route::get(
         '/complaints/{id}',
         [AdminComplaintController::class, 'show']

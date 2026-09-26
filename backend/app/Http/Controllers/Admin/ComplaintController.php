@@ -487,6 +487,59 @@ class ComplaintController extends Controller
     }
 
     /**
+     * NOTIFICATION FEED  ->  GET /api/admin/notifications
+     *
+     * What the admin bell shows.
+     *
+     * This is deliberately NOT the same as GET /api/notifications. That one is
+     * "my own notifications" (WHERE user_id = me), and for an admin it is
+     * always empty - the complaint trigger notifies the person who FILED the
+     * complaint, never the admin who resolved it.
+     *
+     * So this is an oversight view: the notifications the system has generated
+     * for everyone, newest first, each one showing who received it.
+     */
+    public function notifications()
+    {
+        /*
+        | JOIN, not LEFT JOIN. notifications.user_id is NOT NULL with a foreign
+        | key, so every notification is guaranteed to have a recipient.
+        |
+        | LIMIT 20 because this feeds a small dropdown - there is no reason to
+        | send the whole table to the browser and throw most of it away.
+        */
+        $notifications = DB::select(
+            "SELECT
+                 notifications.id,
+                 notifications.title,
+                 notifications.message,
+                 notifications.is_read,
+                 notifications.created_at,
+                 users.id    AS user_id,
+                 users.name  AS user_name,
+                 users.email AS user_email
+             FROM notifications
+             JOIN users ON users.id = notifications.user_id
+             ORDER BY notifications.created_at DESC, notifications.id DESC
+             LIMIT 20"
+        );
+
+        // Drives the red dot. COUNT in SQL rather than counting in JavaScript,
+        // because the list above is capped at 20 and the true unread total may
+        // be larger.
+        $unread = DB::selectOne(
+            "SELECT COUNT(*) AS total FROM notifications WHERE is_read = 0"
+        )->total;
+
+        return response()->json([
+            'message'       => 'Notifications fetched successfully.',
+            'count'         => count($notifications),
+            'unread'        => (int) $unread,
+            'notifications' => $notifications,
+        ]);
+    }
+
+    /**
      * ADMIN ACTIVITY LOG  ->  GET /api/admin/activities
      *
      * The audit trail written by the transaction above. Proves that every
