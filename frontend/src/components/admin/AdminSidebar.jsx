@@ -91,7 +91,7 @@ export default function AdminSidebar({ activeTab, onTabChange, onLogout }) {
           */}
           <button
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate('/settings/admin')}
           >
             <Settings size={18} /> Settings
           </button>
