@@ -420,6 +420,148 @@ export default function App() {
                     }
                 />
 
+            <Route
+                path="/shelter/dashboard"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <ShelterDashboard
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* OLD SHELTER DASHBOARD ROUTE
+                Kept for compatibility
+            */}
+
+            <Route
+                path="/dashboard/shelter"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <ShelterDashboard
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* ADD PET */}
+
+            <Route
+                path="/shelter/pets/add"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <AddPet
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* OLD ADD PET ROUTE
+                Kept for compatibility
+            */}
+
+            <Route
+                path="/dashboard/shelter/add-pet"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <AddPet
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* MANAGE PETS */}
+
+            <Route
+                path="/shelter/pets"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <ManagePets
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* PET MEDICAL RECORDS */}
+
+            <Route
+                path="/shelter/pets/:id/medical-records"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <PetMedicalRecords
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* OLD MANAGE PETS ROUTE
+                Kept for compatibility
+            */}
+
+            <Route
+                path="/dashboard/shelter/manage-pets"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <ManagePets
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* SHELTER APPLICATIONS */}
+
+            <Route
+                path="/shelter/applications"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <ShelterApplicationsPage />
+                    </RequireAuth>
+                }
+            />
+
+            {/* SHELTER PROFILE */}
+
+            <Route
+                path="/profile/shelter"
+                element={
+                    <RequireAuth role="shelter_staff">
+                        <MyProfile
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
+
+            {/* GENERIC PROFILE
+                Useful for sidebar links
+            */}
+
+            <Route
+                path="/profile"
+                element={
+                    <RequireAuth>
+                        <MyProfile
+                            darkMode={darkMode}
+                            toggleDarkMode={toggleDarkMode}
+                        />
+                    </RequireAuth>
+                }
+            />
 
                 {/* MANAGE PETS */}
 
@@ -734,11 +876,6 @@ export default function App() {
     );
 }
 
-
-// ========================================
-// SHELTER APPLICATIONS PAGE
-// ========================================
-
 function ShelterApplicationsPage() {
 
     return (
@@ -750,11 +887,7 @@ function ShelterApplicationsPage() {
                 fontFamily: "Arial, sans-serif",
             }}
         >
-
-            <h1>
-                Adoption Requests
-            </h1>
-
+            <h1>Adoption Requests</h1>
             <p>
                 Shelter adoption requests are
                 available through the shelter dashboard.

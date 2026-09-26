@@ -11,12 +11,14 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 import {
   fetchAdminComplaints,
   fetchAdminComplaint,
   updateComplaintStatus,
+  escalateOldComplaints,
 } from '../../api/adminComplaints';
 
 /*
@@ -35,16 +37,30 @@ import {
 | UPDATE ... WHERE id = ?.
 |
 | Note the capital letters: the status column is
-| ENUM('Pending','Resolved','Rejected'), so 'pending' would never match.
+| ENUM('Pending','Resolved','Rejected','Escalated'), so 'pending' would never
+| match.
+|
+| The "Escalate Old" button is the one thing on this page that does NOT run a
+| plain query. It calls a stored procedure that loops over the pending
+| complaints inside MySQL - see src/api/adminComplaints.js and
+| database/procedures/sp_escalate_old_complaints.sql.
 */
 
-const STATUSES = ['Pending', 'Resolved', 'Rejected'];
+const STATUSES = ['Pending', 'Resolved', 'Rejected', 'Escalated'];
+
+// The rule from the task: pending for MORE than this many days gets escalated.
+const ESCALATE_AFTER_DAYS = 7;
 
 export default function AdminComplaints() {
   const navigate = useNavigate();
 
   const [complaints, setComplaints] = useState([]);
-  const [summary, setSummary] = useState({ pending: 0, resolved: 0, rejected: 0 });
+  const [summary, setSummary] = useState({
+    pending: 0,
+    resolved: 0,
+    rejected: 0,
+    escalated: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -54,6 +70,10 @@ export default function AdminComplaints() {
 
   const [viewing, setViewing] = useState(null);
   const [savingId, setSavingId] = useState(null);   // which row is mid-update
+
+  // The escalation loop: is it running, and what did it report back?
+  const [escalating, setEscalating] = useState(false);
+  const [escalateResult, setEscalateResult] = useState(null);
 
   /*
   | READ  ->  GET /api/admin/complaints
@@ -97,6 +117,44 @@ export default function AdminComplaints() {
       alert(error.message);
     } finally {
       setSavingId(null);
+    }
+  };
+
+  /*
+  | RUN THE ESCALATION LOOP  ->  POST /api/admin/complaints/escalate
+  |
+  | The browser does not decide which complaints are old. It sends one request,
+  | and MySQL runs the stored procedure sp_escalate_old_complaints, which walks
+  | the pending complaints one at a time with a cursor loop and flags the ones
+  | older than ESCALATE_AFTER_DAYS.
+  |
+  | The response carries the procedure's two OUT parameters - how many rows the
+  | loop looked at, and how many it changed - which is what we show the admin.
+  */
+  const handleEscalate = async () => {
+    setEscalating(true);
+    setEscalateResult(null);
+
+    try {
+      const data = await escalateOldComplaints(ESCALATE_AFTER_DAYS);
+
+      setEscalateResult({
+        ok: true,
+        message: data.message,
+        checked: data.checked,
+        escalated: data.escalated,
+      });
+
+      // The loop changed rows in the table, so re-read. Without this the page
+      // would still be showing the statuses from before the procedure ran.
+      await loadComplaints();
+    } catch (error) {
+      setEscalateResult({
+        ok: false,
+        message: error.message || 'Could not run the escalation loop.',
+      });
+    } finally {
+      setEscalating(false);
     }
   };
 
@@ -199,6 +257,7 @@ export default function AdminComplaints() {
         .cp-sum-icon.pending  { background: rgba(245,158,11,0.14); color: #d97706; }
         .cp-sum-icon.resolved { background: rgba(16,185,129,0.14); color: #059669; }
         .cp-sum-icon.rejected { background: rgba(239,68,68,0.14);  color: #dc2626; }
+        .cp-sum-icon.escalated { background: rgba(217,70,239,0.14); color: #a21caf; }
 
         .cp-sum-num   { font-size: 21px; font-weight: 800; line-height: 1.1; }
         .cp-sum-label { font-size: 11px; color: #64748b; }
@@ -241,6 +300,28 @@ export default function AdminComplaints() {
           display: inline-flex; align-items: center; gap: 6px;
         }
 
+        .cp-btn-escalate {
+          background: #a21caf; color: #fff;
+          border: 1px solid #a21caf; border-radius: 9px;
+          padding: 8px 13px; font-size: 12px; font-weight: 600; cursor: pointer;
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .cp-btn-escalate:hover:not(:disabled) { background: #86198f; }
+        .cp-btn-escalate:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .cp-escalate-note {
+          margin-bottom: 14px; padding: 10px 13px; border-radius: 9px;
+          font-size: 12.5px; line-height: 1.5;
+        }
+        .cp-escalate-note.ok {
+          background: rgba(217,70,239,0.09); color: #86198f;
+          border: 1px solid rgba(217,70,239,0.25);
+        }
+        .cp-escalate-note.bad {
+          background: rgba(239,68,68,0.09); color: #b91c1c;
+          border: 1px solid rgba(239,68,68,0.25);
+        }
+
         .cp-table-wrap { width: 100%; overflow-x: auto; }
         .cp-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 
@@ -275,6 +356,9 @@ export default function AdminComplaints() {
         .cp-badge.Pending  { background: rgba(245,158,11,0.13); color: #d97706; }
         .cp-badge.Resolved { background: rgba(16,185,129,0.13); color: #059669; }
         .cp-badge.Rejected { background: rgba(239,68,68,0.13);  color: #dc2626; }
+        /* Class name has to match the ENUM value exactly, because the JSX
+           builds it by pasting complaint.status onto "cp-badge ". */
+        .cp-badge.Escalated { background: rgba(217,70,239,0.13); color: #a21caf; }
 
         .cp-cat {
           background: rgba(40,105,147,0.09); color: #286993;
@@ -406,6 +490,15 @@ export default function AdminComplaints() {
               </div>
             </div>
 
+            {/* Set by the escalation loop, not by a human */}
+            <div className="cp-sum-card">
+              <div className="cp-sum-icon escalated"><AlertTriangle size={19} /></div>
+              <div>
+                <div className="cp-sum-num">{loading ? '...' : summary.escalated}</div>
+                <div className="cp-sum-label">Escalated</div>
+              </div>
+            </div>
+
             <div className="cp-sum-card">
               <div className="cp-sum-icon" style={{ background: 'rgba(40,105,147,0.12)', color: '#286993' }}>
                 <Flag size={19} />
@@ -449,7 +542,39 @@ export default function AdminComplaints() {
               <button className="cp-btn-ghost" onClick={loadComplaints} title="Re-run the SELECT">
                 <RefreshCw size={13} /> Refresh
               </button>
+
+              {/*
+                Runs the cursor loop inside MySQL. Disabled while it is running
+                so a double-click cannot start it twice.
+              */}
+              <button
+                className="cp-btn-escalate"
+                onClick={handleEscalate}
+                disabled={escalating}
+                title={`CALL sp_escalate_old_complaints(${ESCALATE_AFTER_DAYS}) - loops over pending complaints in MySQL`}
+              >
+                {escalating
+                  ? <><RefreshCw size={13} className="cp-spin" /> Running loop...</>
+                  : <><AlertTriangle size={13} /> Escalate Old ({ESCALATE_AFTER_DAYS}d+)</>}
+              </button>
             </div>
+
+            {/*
+              What the procedure reported back. `checked` and `escalated` are
+              its two OUT parameters, so this is the loop telling us how many
+              rows it walked through and how many it actually changed.
+            */}
+            {escalateResult && (
+              <div className={`cp-escalate-note ${escalateResult.ok ? 'ok' : 'bad'}`}>
+                <strong>{escalateResult.message}</strong>
+                {escalateResult.ok && (
+                  <span className="cp-muted">
+                    {' '}The loop checked {escalateResult.checked} pending
+                    complaint(s) and escalated {escalateResult.escalated}.
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="cp-table-wrap">
               <table className="cp-table">
