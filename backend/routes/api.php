@@ -359,6 +359,20 @@ Route::middleware([
         [AdminComplaintController::class, 'escalateOld']
     );
 
+    // The admin audit trail written by the transaction in
+    // ComplaintController@update. Optional filter: ?complaint_id=12
+    Route::get(
+        '/activities',
+        [AdminComplaintController::class, 'activities']
+    );
+
+    // Feed for the bell in the admin topbar. Shows notifications generated for
+    // ALL users, unlike /api/notifications which only shows your own.
+    Route::get(
+        '/notifications',
+        [AdminComplaintController::class, 'notifications']
+    );
+
     Route::get(
         '/complaints/{id}',
         [AdminComplaintController::class, 'show']

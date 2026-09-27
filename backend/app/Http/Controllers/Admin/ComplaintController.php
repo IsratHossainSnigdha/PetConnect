@@ -242,9 +242,11 @@ class ComplaintController extends Controller
                  users.name  AS user_name,
                  users.email AS user_email,
                  users.phone AS user_phone,
-                 users.role  AS user_role
+                 users.role  AS user_role,
+                 admins.name AS resolved_by_name
              FROM complaints
              JOIN users ON users.id = complaints.user_id
+             LEFT JOIN users AS admins ON admins.id = complaints.resolved_by
              WHERE complaints.id = ?",
             [$id]
         );
@@ -257,10 +259,12 @@ class ComplaintController extends Controller
     }
 
     /**
-     * CHANGE STATUS  ->  PUT /api/admin/complaints/{id}
+     * CHANGE STATUS  ->  PUT /api/admin/complaints/{id}       (issue #64)
      *
      * This is the whole point of the admin page: reviewing a complaint and
      * marking it Resolved or Rejected.
+     *
+     * It now writes to TWO tables, so it runs inside a TRANSACTION.
      */
     public function update(Request $request, $id)
     {
@@ -276,33 +280,314 @@ class ComplaintController extends Controller
             'status' => ['required', 'in:Pending,Resolved,Rejected,Escalated'],
         ]);
 
-        $exists = DB::selectOne("SELECT id FROM complaints WHERE id = ?", [$id]);
+        $complaint = DB::selectOne(
+            "SELECT id, subject, status, user_id FROM complaints WHERE id = ?",
+            [$id]
+        );
 
-        if (! $exists) {
+        if (! $complaint) {
             return response()->json(['message' => 'Complaint not found.'], 404);
         }
 
+        $newStatus = $validated['status'];
+
         /*
-        |     UPDATE complaints SET status = ? WHERE id = ?;
+        |----------------------------------------------------------------------
+        | REMEMBER THE HIGH-WATER MARK OF THE NOTIFICATIONS TABLE
+        |----------------------------------------------------------------------
         |
-        | The WHERE is the important half. Without it every complaint in the
-        | table would be set to the same status, and there is no undo.
+        | We never INSERT a notification here. The database does it on its own:
+        | the trigger trg_notify_user_on_complaint_resolved fires on the UPDATE
+        | below and writes one for the complaint owner.
+        |
+        | To be able to SHOW the admin that it happened, we note the largest
+        | notification id that exists BEFORE the update. Anything above this
+        | afterwards was created by the trigger, not by us.
+        |
+        | COALESCE(..., 0) because MAX() on an empty table returns NULL, and
+        | "id > NULL" matches nothing.
         */
-        DB::update(
-            "UPDATE complaints SET status = ?, updated_at = NOW() WHERE id = ?",
-            [$validated['status'], $id]
+        $notificationsBefore = DB::selectOne(
+            "SELECT COALESCE(MAX(id), 0) AS max_id FROM notifications"
+        )->max_id;
+
+        // Who is doing this? The `admin` middleware has already guaranteed this
+        // request belongs to a logged-in platform_admin, so there is always a
+        // user here.
+        $adminId = $request->user()->id;
+
+        /*
+        |----------------------------------------------------------------------
+        | WHY THIS NEEDS A TRANSACTION
+        |----------------------------------------------------------------------
+        |
+        | Resolving a complaint is now TWO writes to TWO different tables:
+        |
+        |     1. UPDATE complaints        - close the complaint
+        |     2. INSERT INTO admin_activities - record who closed it
+        |
+        | Run separately, a crash between them leaves the database lying: the
+        | complaint looks resolved but nothing says who did it, or an audit row
+        | claims an action that never actually happened.
+        |
+        | A transaction makes the two writes ONE indivisible step. That is
+        | ATOMICITY - the A in ACID. Either both land or neither does; there is
+        | no state where only half the work is saved.
+        |
+        | These three calls send exactly the SQL you would type by hand:
+        |
+        |     DB::beginTransaction()  ->  START TRANSACTION
+        |     DB::commit()            ->  COMMIT
+        |     DB::rollBack()          ->  ROLLBACK
+        |
+        | Nothing between START and COMMIT is visible to any other connection.
+        | Until COMMIT runs, the changes exist only inside this transaction.
+        */
+        DB::beginTransaction();
+
+        try {
+            /*
+            | resolved_by / resolved_at only mean something for a complaint that
+            | is actually resolved. Moving one back to Pending or Rejected has
+            | to CLEAR them, otherwise the row would keep claiming it was
+            | resolved by someone.
+            */
+            $resolvedBy = $newStatus === 'Resolved' ? $adminId : null;
+
+            /*
+            | resolved_at is decided by MySQL, not PHP.
+            |
+            | Laravel's app timezone is UTC (config/app.php) while the MySQL
+            | server runs on local time. Passing PHP's now() as a bound value
+            | while updated_at uses NOW() would put two DIFFERENT times on the
+            | same row - here that was a six hour gap, and the notification the
+            | trigger writes quotes resolved_at, so the user would be told the
+            | wrong time.
+            |
+            | IF(? = 'Resolved', NOW(), NULL) keeps the whole decision inside
+            | the query: MySQL's clock fills it in when the complaint is being
+            | resolved, and NULL clears it for any other status. One clock, so
+            | the columns cannot disagree.
+            */
+            $affected = DB::update(
+                "UPDATE complaints
+                 SET status      = ?,
+                     resolved_by = ?,
+                     resolved_at = IF(? = 'Resolved', NOW(), NULL),
+                     updated_at  = NOW()
+                 WHERE id = ?",
+                [$newStatus, $resolvedBy, $newStatus, $id]
+            );
+
+            /*
+            | DB::update returns HOW MANY ROWS it changed. Zero means the
+            | complaint vanished between the SELECT above and this UPDATE, so
+            | the audit row we are about to write would describe something that
+            | never happened.
+            |
+            | Throwing here jumps to the catch block, which ROLLBACKs. This is
+            | the "if the complaint update fails, no activity record is
+            | created" half of the acceptance criteria.
+            */
+            if ($affected === 0) {
+                throw new \RuntimeException(
+                    'The complaint could not be updated, so nothing was saved.'
+                );
+            }
+
+            // Second write: the audit trail. If THIS fails, the UPDATE above is
+            // undone as well - the other half of atomicity.
+            DB::insert(
+                "INSERT INTO admin_activities
+                    (admin_id, complaint_id, action, details, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, NOW(), NOW())",
+                [
+                    $adminId,
+                    $id,
+                    // e.g. 'complaint_resolved' - lowercased so the tag is
+                    // stable even if the display spelling ever changes.
+                    'complaint_' . strtolower($newStatus),
+                    'Changed complaint #' . $id . ' ("' . $complaint->subject . '") from '
+                        . $complaint->status . ' to ' . $newStatus . '.',
+                ]
+            );
+
+            // Both writes succeeded. COMMIT makes them permanent and visible to
+            // everyone else. Before this line, no other connection could see
+            // either change.
+            DB::commit();
+        } catch (\Throwable $e) {
+            /*
+            | Something failed. ROLLBACK throws away EVERY change made since
+            | beginTransaction - including the UPDATE that already "worked".
+            | The database ends up exactly as it was before this request, with
+            | no half-finished data left behind.
+            */
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Could not update the complaint. No changes were saved.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+
+        /*
+        |----------------------------------------------------------------------
+        | WHAT DID THE TRIGGER DO?
+        |----------------------------------------------------------------------
+        |
+        | Now that the transaction has COMMITted, anything in notifications
+        | above the id we noted earlier was inserted by the trigger. There is no
+        | INSERT INTO notifications anywhere in this controller - if a row comes
+        | back here, the database created it by itself.
+        |
+        | This is only read so the admin page can confirm the owner was told.
+        | Resolving is the only status the trigger reacts to, so for Pending,
+        | Rejected or Escalated this correctly comes back empty.
+        */
+        $notification = DB::selectOne(
+            "SELECT
+                 notifications.id,
+                 notifications.user_id,
+                 notifications.title,
+                 notifications.message,
+                 notifications.created_at,
+                 users.name  AS user_name,
+                 users.email AS user_email
+             FROM notifications
+             JOIN users ON users.id = notifications.user_id
+             WHERE notifications.id > ?
+               AND notifications.user_id = ?
+             ORDER BY notifications.id DESC
+             LIMIT 1",
+            [$notificationsBefore, $complaint->user_id]
         );
 
         return response()->json([
-            'message'   => 'Complaint marked as ' . $validated['status'] . '.',
+            'message'   => 'Complaint marked as ' . $newStatus . '.',
             // Read the row back so the response shows what is actually stored.
+            // The LEFT JOIN is to the RESOLVING ADMIN, and it must be LEFT:
+            // an unresolved complaint has resolved_by = NULL, and an INNER JOIN
+            // would drop those rows from the result entirely.
             'complaint' => DB::selectOne(
-                "SELECT complaints.*, users.name AS user_name, users.email AS user_email
+                "SELECT
+                     complaints.*,
+                     users.name   AS user_name,
+                     users.email  AS user_email,
+                     admins.name  AS resolved_by_name
                  FROM complaints
                  JOIN users ON users.id = complaints.user_id
+                 LEFT JOIN users AS admins ON admins.id = complaints.resolved_by
                  WHERE complaints.id = ?",
                 [$id]
             ),
+            // null unless the trigger fired.
+            'notification' => $notification,
+        ]);
+    }
+
+    /**
+     * NOTIFICATION FEED  ->  GET /api/admin/notifications
+     *
+     * What the admin bell shows.
+     *
+     * This is deliberately NOT the same as GET /api/notifications. That one is
+     * "my own notifications" (WHERE user_id = me), and for an admin it is
+     * always empty - the complaint trigger notifies the person who FILED the
+     * complaint, never the admin who resolved it.
+     *
+     * So this is an oversight view: the notifications the system has generated
+     * for everyone, newest first, each one showing who received it.
+     */
+    public function notifications()
+    {
+        /*
+        | JOIN, not LEFT JOIN. notifications.user_id is NOT NULL with a foreign
+        | key, so every notification is guaranteed to have a recipient.
+        |
+        | LIMIT 20 because this feeds a small dropdown - there is no reason to
+        | send the whole table to the browser and throw most of it away.
+        */
+        $notifications = DB::select(
+            "SELECT
+                 notifications.id,
+                 notifications.title,
+                 notifications.message,
+                 notifications.is_read,
+                 notifications.created_at,
+                 users.id    AS user_id,
+                 users.name  AS user_name,
+                 users.email AS user_email
+             FROM notifications
+             JOIN users ON users.id = notifications.user_id
+             ORDER BY notifications.created_at DESC, notifications.id DESC
+             LIMIT 20"
+        );
+
+        // Drives the red dot. COUNT in SQL rather than counting in JavaScript,
+        // because the list above is capped at 20 and the true unread total may
+        // be larger.
+        $unread = DB::selectOne(
+            "SELECT COUNT(*) AS total FROM notifications WHERE is_read = 0"
+        )->total;
+
+        return response()->json([
+            'message'       => 'Notifications fetched successfully.',
+            'count'         => count($notifications),
+            'unread'        => (int) $unread,
+            'notifications' => $notifications,
+        ]);
+    }
+
+    /**
+     * ADMIN ACTIVITY LOG  ->  GET /api/admin/activities
+     *
+     * The audit trail written by the transaction above. Proves that every
+     * resolved complaint has a matching activity record.
+     *
+     * Optional filter:  ?complaint_id=12
+     */
+    public function activities(Request $request)
+    {
+        /*
+        | Both JOINs are LEFT JOINs on purpose. admin_activities.admin_id and
+        | complaint_id are nullOnDelete, so a log row can outlive the admin or
+        | the complaint it refers to. An INNER JOIN would silently hide exactly
+        | those rows - and hiding rows is the one thing an audit log must never
+        | do.
+        */
+        $sql = "SELECT
+                    admin_activities.id,
+                    admin_activities.action,
+                    admin_activities.details,
+                    admin_activities.created_at,
+                    admin_activities.admin_id,
+                    admin_activities.complaint_id,
+                    users.name AS admin_name,
+                    complaints.subject AS complaint_subject,
+                    complaints.status  AS complaint_status
+                FROM admin_activities
+                LEFT JOIN users      ON users.id = admin_activities.admin_id
+                LEFT JOIN complaints ON complaints.id = admin_activities.complaint_id
+                WHERE 1 = 1";
+
+        $params = [];
+
+        if ($request->query('complaint_id')) {
+            $sql .= " AND admin_activities.complaint_id = ?";
+            $params[] = $request->query('complaint_id');
+        }
+
+        // Newest first, which is what the created_at index is there for.
+        $sql .= " ORDER BY admin_activities.created_at DESC, admin_activities.id DESC
+                  LIMIT 50";
+
+        $activities = DB::select($sql, $params);
+
+        return response()->json([
+            'message'    => 'Admin activity fetched successfully.',
+            'count'      => count($activities),
+            'activities' => $activities,
         ]);
     }
 }
