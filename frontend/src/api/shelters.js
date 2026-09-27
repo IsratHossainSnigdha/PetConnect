@@ -128,14 +128,6 @@ export async function fetchShelterPets(shelterId) {
   return apiFetch(`/admin/shelters/${shelterId}/pets`);
 }
 
-/** POST /api/admin/shelters/{id}/pets  ->  INSERT INTO pets ... */
-export async function createShelterPet(shelterId, pet) {
-  return apiFetch(`/admin/shelters/${shelterId}/pets`, {
-    method: 'POST',
-    body: JSON.stringify(pet),
-  });
-}
-
 /** PUT /api/admin/shelters/{id}/pets/{petId}  ->  UPDATE pets ... */
 export async function updateShelterPet(shelterId, petId, pet) {
   return apiFetch(`/admin/shelters/${shelterId}/pets/${petId}`, {

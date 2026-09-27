@@ -986,6 +986,34 @@ const dashboardStyles = `
           color: #2563eb;
         }
 
+        /* The dashboard badge now shows the complaint's real STATUS, because
+           the complaints table has no priority column (issue #61). These four
+           names match the ENUM exactly, lowercased by the JSX:
+
+               ENUM('Pending','Resolved','Rejected','Escalated')
+
+           The high/medium/low rules above are kept for anything else on the
+           page still using them. */
+        .priority-badge.pending {
+          background: rgba(245, 158, 11, 0.12);
+          color: #d97706;
+        }
+
+        .priority-badge.resolved {
+          background: rgba(16, 185, 129, 0.12);
+          color: #059669;
+        }
+
+        .priority-badge.rejected {
+          background: rgba(239, 68, 68, 0.12);
+          color: #dc2626;
+        }
+
+        .priority-badge.escalated {
+          background: rgba(217, 70, 239, 0.12);
+          color: #a21caf;
+        }
+
         .complaint-time {
           font-size: 10px;
           color: #64748b;

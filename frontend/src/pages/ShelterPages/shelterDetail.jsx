@@ -11,16 +11,14 @@ import {
   PawPrint,
   Star,
   FileText,
-  Plus,
   Edit,
   Trash2,
   X,
   RefreshCw,
 } from 'lucide-react';
 
-import { fetchShelter } from '../../api/shelters';
 import {
-  createShelterPet,
+  fetchShelter,
   updateShelterPet,
   deleteShelterPet,
 } from '../../api/shelters';
@@ -125,13 +123,6 @@ export default function ShelterDetail() {
   | PET ADD / EDIT / DELETE
   |--------------------------------------------------------------------------
   */
-  const openAddPet = () => {
-    setEditingPetId(null);
-    setPetForm(EMPTY_PET);
-    setPetErrors({});
-    setPetModal(true);
-  };
-
   const openEditPet = (pet) => {
     setEditingPetId(pet.id);
 
@@ -181,11 +172,9 @@ export default function ShelterDetail() {
     };
 
     try {
-      if (editingPetId) {
-        await updateShelterPet(id, editingPetId, payload);
-      } else {
-        await createShelterPet(id, payload);
-      }
+      // Edit only. The admin has no create path any more (issue #61), so there
+      // is no branch for it here.
+      await updateShelterPet(id, editingPetId, payload);
 
       setPetModal(false);
       await load();     // re-read, so the list and the counts both refresh
@@ -647,14 +636,17 @@ export default function ShelterDetail() {
                     <h3>Pets at this shelter</h3>
                     <p>SELECT * FROM pets WHERE shelter_id = {shelter.id}</p>
                   </div>
-                  <button className="sd-btn" onClick={openAddPet}>
-                    <Plus size={15} /> Add Pet
-                  </button>
+                  {/*
+                    No "Add Pet" button here on purpose (issue #61). Creating
+                    pets is a Shelter Staff job, done from their own dashboard.
+                    The admin can still edit or remove a pet for moderation,
+                    which is why the edit and delete actions below stay.
+                  */}
                 </div>
 
                 {shelter.pets.length === 0 ? (
                   <div className="sd-empty">
-                    No pets yet. Use "Add Pet" to put the first animal on this shelter&apos;s list.
+                    No pets yet. Shelter staff add animals from their own dashboard.
                   </div>
                 ) : (
                   <div className="sd-table-wrap">
@@ -797,7 +789,7 @@ export default function ShelterDetail() {
 
             <div className="sd-modal-head">
               <div>
-                <h3>{editingPetId ? 'Edit Pet' : 'Add Pet'}</h3>
+                <h3>Edit Pet</h3>
                 <p>
                   {editingPetId
                     ? `UPDATE pets SET ... WHERE id = ${editingPetId} AND shelter_id = ${id}`
@@ -904,7 +896,7 @@ export default function ShelterDetail() {
                   Cancel
                 </button>
                 <button type="submit" className="sd-btn" disabled={saving}>
-                  {saving ? 'Saving...' : editingPetId ? 'Update Pet' : 'Add Pet'}
+                  {saving ? 'Saving...' : 'Update Pet'}
                 </button>
               </div>
             </form>

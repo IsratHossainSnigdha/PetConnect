@@ -60,60 +60,9 @@ class ShelterPetController extends Controller
         ]);
     }
 
-    /**
-     * ADD a pet  ->  POST /api/admin/shelters/{shelter}/pets
-     */
-    public function store(Request $request, $shelterId)
-    {
-        // Does the shelter in the URL actually exist? The foreign key would
-        // reject a bad id anyway, but with a raw SQL error rather than a
-        // message anyone can read.
-        $shelter = DB::selectOne("SELECT id FROM shelters WHERE id = ?", [$shelterId]);
-
-        if (! $shelter) {
-            return response()->json(['message' => 'Shelter not found.'], 404);
-        }
-
-        $data = $this->validatePet($request);
-
-        /*
-        |     INSERT INTO pets (...) VALUES (...);
-        |
-        | shelter_id comes from the URL, never from the request body, so a pet
-        | cannot be filed under a shelter the caller was not addressing.
-        |
-        | NOW() fills created_at and updated_at. Raw SQL has nothing doing that
-        | for us the way an Eloquent model would.
-        */
-        DB::insert(
-            "INSERT INTO pets
-                (shelter_id, name, type, breed, age, gender,
-                 health_status, vaccine_status, status, description, image,
-                 created_at, updated_at)
-             VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-            [
-                $shelterId,
-                $data['name'],
-                $data['type'],
-                $data['breed']          ?? null,
-                $data['age']            ?? null,
-                $data['gender']         ?? null,
-                $data['health_status']  ?? null,
-                $data['vaccine_status'] ?? null,
-                $data['status']         ?? 'available',
-                $data['description']    ?? null,
-                $data['image']          ?? null,
-            ]
-        );
-
-        $newId = DB::getPdo()->lastInsertId();
-
-        return response()->json([
-            'message' => 'Pet added successfully.',
-            'pet'     => DB::selectOne("SELECT * FROM pets WHERE id = ?", [$newId]),
-        ], 201);
-    }
+    // There is no store() method (issue #61). Creating pets belongs to
+    // Shelter Staff, in ApiPetController@store. The admin route for it was
+    // removed too, so the capability is gone rather than just hidden.
 
     /**
      * EDIT a pet  ->  PUT /api/admin/shelters/{shelter}/pets/{pet}
