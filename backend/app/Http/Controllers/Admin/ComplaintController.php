@@ -318,117 +318,134 @@ class ComplaintController extends Controller
 
         /*
         |----------------------------------------------------------------------
-        | WHY THIS NEEDS A TRANSACTION
+        | WHERE THE TRANSACTION LIVES                          (issue #64)
         |----------------------------------------------------------------------
         |
-        | Resolving a complaint is now TWO writes to TWO different tables:
+        | Resolving a complaint is TWO writes to TWO different tables:
         |
-        |     1. UPDATE complaints        - close the complaint
+        |     1. UPDATE complaints           - close the complaint
         |     2. INSERT INTO admin_activities - record who closed it
         |
-        | Run separately, a crash between them leaves the database lying: the
-        | complaint looks resolved but nothing says who did it, or an audit row
-        | claims an action that never actually happened.
+        | Run separately, a crash between them leaves the database lying: a
+        | complaint that looks resolved with nothing saying who did it, or an
+        | audit row for something that never happened. A transaction makes them
+        | ONE indivisible step - either both land or neither does. That is
+        | ATOMICITY, the A in ACID.
         |
-        | A transaction makes the two writes ONE indivisible step. That is
-        | ATOMICITY - the A in ACID. Either both land or neither does; there is
-        | no state where only half the work is saved.
+        | For RESOLVING, that transaction is now inside the database, in
+        | sp_resolve_complaint: it runs START TRANSACTION, both writes, then
+        | COMMIT, and a DECLARE EXIT HANDLER FOR SQLEXCEPTION that ROLLBACKs if
+        | anything fails. So the guarantee belongs to the database and applies
+        | to every caller, not only to this controller.
         |
-        | These three calls send exactly the SQL you would type by hand:
+        | That is also why there is no DB::beginTransaction() around the CALL
+        | below. MySQL has no nested transactions - a START TRANSACTION inside
+        | the procedure would silently COMMIT an outer one, which would break
+        | the very thing we are trying to guarantee.
         |
-        |     DB::beginTransaction()  ->  START TRANSACTION
-        |     DB::commit()            ->  COMMIT
-        |     DB::rollBack()          ->  ROLLBACK
-        |
-        | Nothing between START and COMMIT is visible to any other connection.
-        | Until COMMIT runs, the changes exist only inside this transaction.
+        | Any OTHER status is still handled here, in a PHP transaction, because
+        | there is no procedure for reopening or rejecting a complaint.
         */
-        DB::beginTransaction();
-
-        try {
-            /*
-            | resolved_by / resolved_at only mean something for a complaint that
-            | is actually resolved. Moving one back to Pending or Rejected has
-            | to CLEAR them, otherwise the row would keep claiming it was
-            | resolved by someone.
-            */
-            $resolvedBy = $newStatus === 'Resolved' ? $adminId : null;
+        if ($newStatus === 'Resolved') {
 
             /*
-            | resolved_at is decided by MySQL, not PHP.
+            | The two ? are IN parameters, bound like any other value. @st and
+            | @msg are session variables catching the two OUT parameters, read
+            | back by the SELECT underneath.
             |
-            | Laravel's app timezone is UTC (config/app.php) while the MySQL
-            | server runs on local time. Passing PHP's now() as a bound value
-            | while updated_at uses NOW() would put two DIFFERENT times on the
-            | same row - here that was a six hour gap, and the notification the
-            | trigger writes quotes resolved_at, so the user would be told the
-            | wrong time.
-            |
-            | IF(? = 'Resolved', NOW(), NULL) keeps the whole decision inside
-            | the query: MySQL's clock fills it in when the complaint is being
-            | resolved, and NULL clears it for any other status. One clock, so
-            | the columns cannot disagree.
+            | By the time this returns, the procedure has already COMMITted or
+            | ROLLBACKed. There is nothing left for PHP to do but report.
             */
-            $affected = DB::update(
-                "UPDATE complaints
-                 SET status      = ?,
-                     resolved_by = ?,
-                     resolved_at = IF(? = 'Resolved', NOW(), NULL),
-                     updated_at  = NOW()
-                 WHERE id = ?",
-                [$newStatus, $resolvedBy, $newStatus, $id]
+            DB::statement(
+                'CALL sp_resolve_complaint(?, ?, @st, @msg)',
+                [$id, $adminId]
             );
 
-            /*
-            | DB::update returns HOW MANY ROWS it changed. Zero means the
-            | complaint vanished between the SELECT above and this UPDATE, so
-            | the audit row we are about to write would describe something that
-            | never happened.
-            |
-            | Throwing here jumps to the catch block, which ROLLBACKs. This is
-            | the "if the complaint update fails, no activity record is
-            | created" half of the acceptance criteria.
-            */
-            if ($affected === 0) {
-                throw new \RuntimeException(
-                    'The complaint could not be updated, so nothing was saved.'
-                );
+            $outcome = DB::selectOne('SELECT @st AS status, @msg AS message');
+
+            if ($outcome->status !== 'success') {
+                /*
+                | A rule the procedure enforced said no - already resolved, or
+                | the complaint disappeared. Nothing is broken, so this is not
+                | a 500. 409 Conflict means "valid request, but it clashes with
+                | the current state of the thing".
+                |
+                | Nothing needs rolling back here: the procedure already did it.
+                */
+                return response()->json([
+                    'message' => $outcome->message,
+                ], 409);
             }
 
-            // Second write: the audit trail. If THIS fails, the UPDATE above is
-            // undone as well - the other half of atomicity.
-            DB::insert(
-                "INSERT INTO admin_activities
-                    (admin_id, complaint_id, action, details, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, NOW(), NOW())",
-                [
-                    $adminId,
-                    $id,
-                    // e.g. 'complaint_resolved' - lowercased so the tag is
-                    // stable even if the display spelling ever changes.
-                    'complaint_' . strtolower($newStatus),
-                    'Changed complaint #' . $id . ' ("' . $complaint->subject . '") from '
-                        . $complaint->status . ' to ' . $newStatus . '.',
-                ]
-            );
+        } else {
 
-            // Both writes succeeded. COMMIT makes them permanent and visible to
-            // everyone else. Before this line, no other connection could see
-            // either change.
-            DB::commit();
-        } catch (\Throwable $e) {
-            /*
-            | Something failed. ROLLBACK throws away EVERY change made since
-            | beginTransaction - including the UPDATE that already "worked".
-            | The database ends up exactly as it was before this request, with
-            | no half-finished data left behind.
-            */
-            DB::rollBack();
+            DB::beginTransaction();
 
-            return response()->json([
-                'message' => 'Could not update the complaint. No changes were saved.',
-                'error'   => $e->getMessage(),
-            ], 500);
+            try {
+                /*
+                | resolved_by / resolved_at are cleared, because a complaint
+                | that is no longer resolved must not keep claiming it was
+                | resolved by someone.
+                |
+                | NOW() is MySQL's clock, never PHP's. Laravel's app timezone is
+                | UTC while the MySQL server runs on local time, so mixing the
+                | two put a six hour gap between columns on the same row.
+                */
+                $affected = DB::update(
+                    "UPDATE complaints
+                     SET status      = ?,
+                         resolved_by = NULL,
+                         resolved_at = NULL,
+                         updated_at  = NOW()
+                     WHERE id = ?",
+                    [$newStatus, $id]
+                );
+
+                /*
+                | DB::update returns HOW MANY ROWS it changed. Zero means the
+                | complaint vanished between the SELECT above and this UPDATE,
+                | so the audit row we are about to write would describe
+                | something that never happened. Throwing jumps to the catch,
+                | which ROLLBACKs.
+                */
+                if ($affected === 0) {
+                    throw new \RuntimeException(
+                        'The complaint could not be updated, so nothing was saved.'
+                    );
+                }
+
+                // Second write: the audit trail. If THIS fails, the UPDATE
+                // above is undone as well - the other half of atomicity.
+                DB::insert(
+                    "INSERT INTO admin_activities
+                        (admin_id, complaint_id, action, details, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, NOW(), NOW())",
+                    [
+                        $adminId,
+                        $id,
+                        // e.g. 'complaint_rejected' - lowercased so the tag is
+                        // stable even if the display spelling ever changes.
+                        'complaint_' . strtolower($newStatus),
+                        'Changed complaint #' . $id . ' ("' . $complaint->subject . '") from '
+                            . $complaint->status . ' to ' . $newStatus . '.',
+                    ]
+                );
+
+                DB::commit();
+            } catch (\Throwable $e) {
+                /*
+                | ROLLBACK throws away EVERY change made since
+                | beginTransaction - including the UPDATE that already
+                | "worked". The database ends up exactly as it was before this
+                | request, with no half-finished data left behind.
+                */
+                DB::rollBack();
+
+                return response()->json([
+                    'message' => 'Could not update the complaint. No changes were saved.',
+                    'error'   => $e->getMessage(),
+                ], 500);
+            }
         }
 
         /*
