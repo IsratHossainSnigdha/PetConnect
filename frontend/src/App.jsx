@@ -56,6 +56,7 @@ import AdminComplaints from "./pages/ComplaintPages/adminComplaints";
 // REPORT PAGES
 // ========================================
 import AdminReports from "./pages/ReportPages/adminReports";
+import AdminSettings from "./pages/SettingsPages/adminSettings";
 
 // ========================================
 // SHELTER PAGES
@@ -865,6 +866,17 @@ export default function App() {
 
             </Routes>
 
+
+            {/* ADMIN SETTINGS */}
+
+            <Route
+                path="/settings/admin"
+                element={
+                    <RequireAuth role="platform_admin">
+                        <AdminSettings />
+                    </RequireAuth>
+                }
+            />
 
             {/* ========================================
                 PETCONNECT AI CHATBOT
